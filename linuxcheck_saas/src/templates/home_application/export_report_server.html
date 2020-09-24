@@ -1,0 +1,19 @@
+<%inherit file="/export_base.html"/>
+<%block name="content">
+<div id="html_content"></div>
+<style>
+    .logo,.back_btn{
+        display: none!important;
+    }
+</style>
+<script>
+    $("#html_content").html('${html_content}')
+</script>
+</%block>
+<!--图表控件-->
+<script type="text/javascript" src="${STATIC_URL}js/plug-in/highcharts/highcharts.js"></script>
+<script type="text/javascript" src="${STATIC_URL}js/plug-in/highcharts/highcharts-3d.js"></script>
+<script type="text/javascript" src="${STATIC_URL}js/plug-in/highcharts/exporting.js"></script>
+<script type="text/javascript" src="${STATIC_URL}js/plug-in/highcharts/highcharts-more.js"></script>
+<script type="text/javascript" src="${STATIC_URL}js/plug-in/highcharts/solid-gauge.js"></script>
+

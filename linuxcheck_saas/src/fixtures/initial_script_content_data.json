@@ -1,0 +1,5 @@
+[
+  {"id":1,"name":"check","content":"","description":"服务器检查脚本"},
+  {"id":2,"name":"performs","content":"","description":"服务器性能信息收集脚本"},
+  {"id":3,"name":"servers_info","content":"","description":"服务器主机和系统信息获取脚本"}
+]

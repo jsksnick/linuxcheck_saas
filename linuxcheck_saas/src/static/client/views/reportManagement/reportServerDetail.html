@@ -1,0 +1,83 @@
+<div id="reportDetail" ng-controller="reportServerDetail" style="width:100%;padding:10px;height: 100%;overflow:hidden;position: relative">
+    <div class="report-title">
+        <div>巡检报告详情：{{serverObj.ip_address}}</div>
+        <div></div>
+        <div class="div-btn hide_div">
+            <button class="btn new-button-two" ng-click="export()">导出</button>
+            <button class="btn new-button-cancel" ng-click="goBack()">返回</button>
+        </div>
+    </div>
+    <hr style="margin: 5px">
+    <div class="report-body">
+        <div class="detail_menu">
+            <div class="menu_title">
+                <span ng-if="a.is_show" class="fa fa-lg fa-angle-up hide_div"></span>
+                <span ng-if="!a.is_show" class="fa fa-lg fa-angle-down hide_div"></span>
+                <span ng-click="openTitle(a)" style="cursor: pointer;">服务器概览</span>
+            </div>
+            <div ng-show="a.is_show" class="menu_body show_div">
+                <div class="summary-chart" cw-piechart="errorOption"></div>
+                <div class="summary-text">
+                    <div>&emsp;&emsp;{{summary}}</div>
+                    <div style="margin: 10px 0;">&emsp;&emsp;左图显示了在单台服务器的巡检报告中，高，中 ，低不同严重程度的问题数量，以及其占据百分比。</div>
+                    <div style="width: 100%;" class="node">
+                        <label class="error_level" style="background-color:#ea4335">高</label><span>这些问题很严重,应当立即处理。</span>
+                    </div>
+                    <div style="width: 100%;" class="node">
+                        <label class="error_level" style="background-color:#fbbc05 ">中</label><span>这些问题对服务器比较重要,建议进行修复。</span>
+                    </div>
+                    <div style="width: 100%;" class="node">
+                        <label class="error_level" style="background-color: #f5fc88">低</label><span>这些问题需要注意，应尽量修复，但并非严重问题。</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div ng-repeat="i in menu_list" class="detail_menu">
+            <div class="menu_title">
+                <span ng-if="i.is_show" class="fa fa-lg fa-angle-up hide_div"></span>
+                <span ng-if="!i.is_show" class="fa fa-lg fa-angle-down hide_div"></span>
+                <span ng-click="openTitle(i)" style="cursor: pointer;">{{i.name}}</span>
+            </div>
+            <div ng-show="i.is_show" class="menu_body show_div" ng-repeat="x in i.menu_two">
+                <div class="menu_title_two">{{x.name}}</div>
+                <table ng-if="!i.is_performs" class="table table-bordered" style="margin-bottom: 5px;">
+                    <tr>
+                        <th style="width:250px;">检查项</th>
+                        <th>检查结果</th>
+                        <th style="width:100px;">推荐值</th>
+                    </tr>
+                    <tr ng-repeat="u in x.details">
+                        <td style="vertical-align: middle" ng-bind="u.cn_name"></td>
+                        <td ng-if="u.value_type=='table'" string-html="u.real_value"></td>
+                        <td ng-if="u.value_type!='table'" ng-class="{true:'{{ u.warn_class }}'}[u.is_warn]">{{u.real_value}}</td>
+                        <td style="vertical-align: middle">{{u.compare_way}}{{u.value}}</td>
+                    </tr>
+                </table>
+                <table ng-if="i.is_performs" class="table table-bordered" style="margin-bottom: 5px;">
+                    <tr>
+                        <th style="width:250px;">检查项</th>
+                        <th>检查结果</th>
+                        <th style="width:100px;">推荐值</th>
+                    </tr>
+                    <tr ng-repeat="u in x.details">
+                        <td style="vertical-align: middle" ng-bind="u.cn_name"></td>
+                        <td ng-if="u.value_type=='form'">
+                            <table class="new_table">
+                                <tr>
+                                    <th>名称</th>
+                                    <th>值</th>
+                                </tr>
+                                <tr ng-repeat="y in u.real_value">
+                                    <td ng-class="{true:'{{ u.warn_class }}'}[y.is_warn]">{{y.name}}</td>
+                                    <td ng-class="{true:'{{ u.warn_class }}'}[y.is_warn]">{{y.value}}</td>
+                                </tr>
+                            </table>
+                        </td>
+                        <td ng-if="u.value_type!='form'" ng-class="{true:'{{ u.warn_class }}'}[u.is_warn]">{{u.real_value}}</td>
+                        <td style="vertical-align: middle">{{u.compare_way}}{{u.value}}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,239 @@
+#!/bin/bash
+
+################################################################
+export LANG="en_US.UTF-8"
+if [[ -f /etc/issue ]];then
+    cat /etc/issue |grep -i SUSE &>/dev/null
+    if [ $? -eq 0 ];then
+        os_type='SUSE'
+        systemnum=$(cat /etc/issue |grep -v ^$ |awk -F'Server' '{print $2}' |awk '{print $1}')
+        arch=$(cat /etc/issue |grep -v ^$ |awk -F'Server' '{print $2}' |awk '{print $1"_"$2}')
+    fi
+else
+    [ -f /etc/SuSE-release ] && os_type='SUSE';systemnum=$(cat /etc/SuSE-release | grep -i version | awk '{print $3}');arch=$(cat /etc/SuSE-release | egrep -i 'version|patchlevel' | awk '{print $3}' | sed ':a;N;$!ba;s/\\n/_SP/g')
+fi
+system_type=`dmesg |grep -i hypervisor`
+################################################################
+
+#which iostat &> /dev/null
+#[ $? -ne 0 ] && echo '未安装sysstat,部分巡检项无法检查,请先安装sysstat包' && exit
+
+sleep_time=5
+a=1
+end=12
+
+while true;
+do
+#cpu使用率数据采集
+case $arch in
+11_SP4)
+    cpu_idle_rate=`top -bn 1 | head -n 5 |grep "Cpu(s)"  |awk '{print $5}' |awk -F% '{print $1}'`
+    cpu_usage=$(awk "BEGIN{print 100-$cpu_idle_rate }")
+    cpu_usage_all+=" $cpu_usage"
+;;
+12_SP3)
+    cpu_idle_rate=`top -bn 1 | head -n 5 |grep "Cpu(s)" |awk '{print $8}'`
+    cpu_usage=$(awk "BEGIN{print 100-$cpu_idle_rate }")
+    cpu_usage_all+=" $cpu_usage"
+;;
+esac
+
+#物理内存使用率采集
+mem_total=`free -m |grep Mem |awk '{print $2}'`
+mem_used=`free -m | sed -n '3p' | awk '{print $3}'`
+per=`awk 'BEGIN{printf "%0.1f",('$mem_used'/'$mem_total')*100}'`
+per_all+=" $per"
+
+#物理内存可用内存采集
+mem_free=`free -m | sed -n '3p' | awk '{print $4}'`
+mem_free_all+=" $mem_free"
+
+#交换分区使用率采集
+swap_used=`free -m |grep -i swap |awk '{print $3}'`
+swap_total=`free -m |grep -i swap |awk '{print $2}'`
+swap_per=`awk 'BEGIN{printf "%0.1f",('$swap_used'/'$swap_total')*100}'`
+swap_per_all+=" $swap_per"
+
+#交换分区可用空间采集
+swap_free=`free -m |grep -i swap |awk '{print $4}'`
+swap_free_all+=" $swap_free"
+
+#硬盘IO使用率采集
+iostat=`which iostat 2>/dev/null`
+if [ -n "$iostat" ];then
+    diskio_usage_all+="$(iostat -xd |sed '1d' | grep -v "scd" |grep -v "^$" |grep -v "dm" |sed  "1d"  |awk '{print $NF}' |tr '\n' ' ')@"
+fi
+
+#磁盘空间使用率采集
+disk_space_usage_all+="$(df -hPBM |grep -v "/dev/sr" |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" | grep -v udev |sed '1d' | awk '{$NF="";print $0}' | uniq |awk '{print $5}' | tr '\n' ' ')@"
+
+
+#磁盘可用空间采集
+disk_space_avail_all+="$(df -hPBM |grep -v "/dev/sr" |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" | grep -v udev |sed '1d' | awk '{$NF="";print $0}' | uniq |awk '{print $4}' |sed 's/M//g' | tr '\n' ' ')@"
+
+#Inode使用率采集
+disk_Inode_usage_all+="$(df -hiTPBK |grep -v "/dev/sr" |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" |sed '1d' | awk '{$NF="";print $0}' | uniq |awk '{print $6}' | tr '\n' ' ')@"
+
+#Inode可用空间采集
+disk_Inode_free_all+="$(df -hiTPBK |grep -v "/dev/sr" |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" |sed '1d' | awk '{$NF="";print $0}' | uniq |awk '{print $5}'  |tr '\n' ' ')@"
+
+#ESTABLISHED状态的连接数采集
+netstat=`which netstat  2>/dev/null`
+if [ -n "${netstat}" ];then
+    net_established_nums_all+="$(netstat -antup|grep ESTABLISHED|wc -l)@"
+fi
+
+#TIME_WAIT状态的连接数采集
+netstat=`which netstat 2>/dev/null`
+if [ -n "${netstat}" ];then
+    net_timewait_nums_all+="$(netstat -antup|grep TIME_WAIT|wc -l)@"
+fi
+
+#网卡当前数据接收速率采集
+sar=`which sar 2>/dev/null`
+if [ -n "$sar" ];then
+    nic_rx_speed_all+="$(sar -n DEV 1 1 |grep Average |grep -v lo |egrep "eth|ens|eno" |awk '{print $5}'  |tr '\n' ' ')@"
+fi
+
+#网卡当前数据发送速率采集
+sar=`which sar 2>/dev/null`
+if [ -n "$sar" ];then
+    nic_tx_speed_all+="$(sar -n DEV 1 1 |grep Average |grep -v lo |egrep "eth|ens|eno" |awk '{print $6}'  |tr '\n' ' ')@"
+fi
+
+
+sleep $sleep_time
+let a=$a+1
+if [ $a -ge $end ];then
+    break
+fi
+done
+
+#cpu使用率结果输出
+cpu_usage=$(echo $cpu_usage_all |tr ' ' '\n' |awk '{sum+=$1} END {print sum/NR}')
+echo "cpu_usage=$cpu_usage"
+
+
+#系统负载状况15min
+sys_load_info_15=`uptime |awk '{print $NF}'`
+echo "sys_load_info_15=${sys_load_info_15}"
+
+#物理内存使用率输出
+per=$(echo $per_all |tr ' ' '\n' |awk '{sum+=$1} END {print sum/NR}')
+echo "mem_usage=$per"
+
+#理内存可用内存输出
+mem_free=$(echo $mem_free_all |tr ' ' '\n' |awk '{sum+=$1} END {print sum/NR}')
+echo "mem_free=${mem_free}"
+
+#换分区使用率输出
+swap_per=$(echo $swap_per_all |tr ' ' '\n' |awk '{sum+=$1} END {print sum/NR}')
+echo "swap_usage=${swap_per}"
+
+#交换分区可用空间输出
+swap_free=$(echo $swap_free_all |tr ' ' '\n' |awk '{sum+=$1} END {print sum/NR}')
+echo "swap_free=$swap_free"
+
+#硬盘IO使用率输出
+which iostat &>/dev/null
+if [ $? -eq 0 ];then
+    disk_item=$(iostat -xd |sed '1d' |grep -v scd |grep -v "^$" |grep -v "dm" |sed  "1d" |awk '{print $1}' |tr '\n' ' ')
+    flag=1
+    echo -n "diskio_usage="
+    for i in $disk_item
+    do
+	tmp=$(echo ${diskio_usage_all} |tr '@' '\n' |grep -v ^$ |cut -d ' ' -f ${flag} |awk '{sum+=$1} END {print sum/NR}')
+	echo "${i}@$tmp;" |tr -d '\n'
+	let flag+=1
+    done
+    echo ''
+else
+    echo "diskio_usage=null"
+fi
+
+
+#磁盘空间使用率输出
+disk_usag_item=$(df -hPBM |grep -v "/dev/sr"  |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" | grep -v udev |sed '1d' |awk '{print $1}' | uniq | tr '\n' ' ')
+flag=1
+echo -n "disk_space_usage="
+for i in $disk_usag_item
+do
+	tmp=$(echo $disk_space_usage_all |tr '@' '\n' |grep -v ^$ |cut -d ' ' -f ${flag} |awk '{sum+=$1} END {print sum/NR}')
+	echo "${i}@$tmp;" |tr -d '\n'
+    	let flag+=1
+done
+echo ''
+
+
+#磁盘可用空间输出
+disk_space_item=$(df -hPBM |grep -v "/dev/sr"  |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" | grep -v udev |sed '1d' |awk '{print $1}'| uniq |tr '\n' ' ')
+flag=1
+echo -n "disk_space_avail="
+for i in $disk_space_item
+do
+	tmp=$(echo $disk_space_avail_all |tr '@' '\n' |grep -v ^$ |cut -d ' ' -f ${flag} |awk '{sum+=$1} END {print sum/NR}')
+	echo "${i}@$tmp;" | tr -d '\n'
+    	let flag+=1
+done
+echo ''
+
+#Inode使用率输出
+disk_Inode_usage_item=$(df -hiTP |grep -v "/dev/sr"  |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" |sed '1d' |awk '{print $1}' | uniq)
+flag=1
+echo -n "disk_Inode_usage="
+for i in $disk_Inode_usage_item
+do
+	tmp=$(echo $disk_Inode_usage_all |tr '@' '\n' |grep -v ^$ |cut -d ' ' -f ${flag} |awk '{sum+=$1} END {print sum/NR}')
+	echo "${i}@$tmp;" | tr -d '\n'
+    	let flag+=1
+done
+echo ''
+
+#Inode可用空间输出
+disk_Inode_usage_item=$(df -hiTP |grep -v "/dev/sr" |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" |sed '1d' |awk '{print $1}' | uniq)
+flag=1
+echo -n "disk_Inode_free="
+for i in $disk_Inode_usage_item
+do
+	tmp=$(echo $disk_Inode_free_all |grep -v "/dev/sr" |tr '@' '\n' |grep -v ^$ |cut -d ' ' -f ${flag} |awk '{sum+=$1} END {print sum/NR/1024}')
+	echo "${i}@$tmp;" | tr -d '\n'
+    	let flag+=1
+done
+echo ''
+
+#ESTABLISHED状态的连接数输出
+net_established_nums=$(echo $net_established_nums_all |tr '@' '\n' |grep -v ^$ |awk '{sum+=$1} END {print sum/NR}' |awk -F. '{print $1}')
+echo "net_established_nums=${net_established_nums}"
+
+#TIME_WAIT状态的连接数输出
+net_timewait_nums=$(echo $net_timewait_nums_all |tr '@' '\n' |grep -v ^$ |awk '{sum+=$1} END {print sum/NR}' |awk -F. '{print $1}')
+echo "net_timewait_nums=${net_timewait_nums}"
+
+#网卡当前数据接收速率输出
+sar=`which sar 2>/dev/null`
+if [ -n "$sar" ];then
+    nic_item=$(sar -n DEV 1 1 |grep Average |grep -v lo |egrep "eth|ens|eno" |awk '{print $2}')
+    flag=1
+    echo -n "nic_rx_speed="
+    for i in $nic_item
+    do
+		tmp=$(echo ${nic_rx_speed_all} |tr '@' '\n' |grep -v ^$ |cut -d ' ' -f ${flag} |awk '{sum+=$1} END {print sum/NR}')
+		echo "${i}@$tmp;" | tr -d '\n'
+        	let flag+=1
+    done
+    echo ''
+fi
+#网卡当前数据发送速率输出
+sar=`which sar 2>/dev/null`
+if [ -n "$sar" ];then
+    nic_item=$(sar -n DEV 1 1 |grep Average |grep -v lo |egrep "eth|ens|eno" |awk '{print $2}')
+    flag=1
+    echo -n "nic_tx_speed="
+    for i in $nic_item
+    do
+		tmp=$(echo ${nic_tx_speed_all} |tr '@' '\n' |grep -v ^$ |cut -d ' ' -f ${flag} |awk '{sum+=$1} END {print sum/NR}')
+		echo "${i}@$tmp;" |tr -d '\n'
+        	let flag+=1
+    done
+    echo ''
+fi

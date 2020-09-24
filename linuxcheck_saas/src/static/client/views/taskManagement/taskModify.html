@@ -1,0 +1,85 @@
+<div>
+    <div dragable dialog-title="修改任务"></div>
+    <div style="width: 100%;padding: 10px;max-height: 500px;overflow-y: auto" class="taskModify">
+        <div class="form-horizontal">
+            <div class="form-group">
+                <label class="col-sm-2 control-label">任务名称：</label>
+                <div class="col-sm-8">
+                    <input class="form-control" type="text" ng-model="args.name">
+                </div>
+                <span class="text-danger mt5 fl">*</span>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2 control-label">巡检模板：</label>
+                <div class="col-sm-8">
+                    <input type="text" style="width:100%" ng-model="args.check_module_id" cw-selectstr2="moduleOption"/>
+                </div>
+                <span class="text-danger mt5 fl">*</span>
+            </div>
+
+            <div class="form-group">
+                <label class="col-sm-2 control-label">执行账户：</label>
+                <div class="col-sm-8">
+                    <input class="form-control" type="text" id="account" ng-model="args.script_account">
+                </div>
+                <span class="text-danger mt5 fl">*</span>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2 control-label">接收报告邮箱：</label>
+                <div class="col-sm-8 plugin3_demo addTask_email_style">
+                    <input type="text" style="width:100%" ng-model="args.receivers" cw-selectstr2="receiverOpt"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2 control-label">执行时间：</label>
+                <div class="col-sm-10">
+                    <div class="radio" style="padding-top: 2px">
+                        <label class="mr10">
+                            <input type="radio" name="time_select" value="now" ng-model="args.time_type">立即
+                        </label>
+                    </div>
+                    <div class="radio" style="min-height: 40px;">
+                        <label class="mr10" style="float:left;">
+                            <input type="radio" name="time_select" value="time" ng-model="args.time_type">
+                            <span>定时 ——— 开始时间：</span>
+                        </label>
+                        <div style="float:left;">
+                            <input cw-datetimepicker ng-disabled="args.time_type!='time'" type="text" style="width: 220px;" ng-model="args.runTime">
+                        </div>
+                    </div>
+                    <div class="radio">
+                        <label class="mr10" style="float:left;">
+                            <input type="radio" name="time_select" value="cycle" ng-model="args.time_type">
+                            <span>周期 ——— 开始时间：</span>
+                        </label>
+                        <div style="float:left;">
+                            <input cw-datetimepicker style="width: 220px;" ng-model="args.cycleTime">
+                        </div>
+                        <span style="margin-left: 10px;float:left;line-height: 30px;">每隔：</span>
+                        <input type="number" ng-disabled="args.time_type!='cycle'" ng-model="args.interval" style="width: 50px;display: inline-block;float:left;" class="form-control">
+                        <span style="margin-left: 10px;float:left;line-height: 30px;">天执行一次</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+            <label class="col-sm-2 control-label">巡检服务器：</label>
+            <div class="col-sm-8">
+                <button ng-click="select_server()" class="btn new-button-two">选择服务器</button>
+                <span class="text-danger mt5 ">*</span>
+            </div>
+
+        </div>
+        <div ng-if="args.servers.length>0" class="form-group">
+            <label class="col-sm-2 control-label"></label>
+            <div class="col-sm-8" style="height:150px;">
+                <div ng-grid="gridOption"
+                     style="height: 150px;width:100%;overflow-y: auto;overflow-x: hidden"></div>
+            </div>
+        </div>
+        </div>
+        <div style="width:100%;margin-top: 10px;text-align: center">
+            <button ng-click="confirm()" class="btn new-button">确认</button>&emsp;
+            <button ng-click="cancel()" class="btn new-button-cancel">取消</button>
+        </div>
+    </div>
+</div>

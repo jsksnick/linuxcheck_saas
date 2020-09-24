@@ -1,0 +1,11 @@
+[
+{"id":1,"name":"系统配置信息","child_name":"系统配置","order":1,"child_order":1},
+{"id":2,"name":"安全配置信息","child_name":"帐号安全","order":2,"child_order":1},
+{"id":3,"name":"安全配置信息","child_name":"系统安全","order":2,"child_order":2},
+{"id":4,"name":"安全配置信息","child_name":"SSH安全设置","order":2,"child_order":3},
+{"id":5,"name":"安全配置信息","child_name":"系统漏洞","order":2,"child_order":4},
+{"id":6,"name":"安全配置信息","child_name":"密码安全","order":2,"child_order":5},
+{"id":7,"name":"安全配置信息","child_name":"网络安全","order":2,"child_order":6},
+{"id":8,"name":"系统运行状态信息","child_name":"系统运行状态","order":3,"child_order":1},
+{"id":9,"name":"系统性能信息","child_name":"系统性能信息","order":4,"child_order":1}
+]

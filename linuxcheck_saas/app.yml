@@ -1,0 +1,40 @@
+app_code: linuxcheck_saas
+app_name: Linux巡检
+author: canway
+category: 运维工具
+!!python/unicode 'date': '2019-06-21 14:34:06'
+desktop:
+  height: 720
+  is_max: true
+  width: 1280
+introduction: Linux巡检
+is_use_celery: True
+!!python/unicode 'language': python
+language_support: 中文
+libraries:
+
+- name: Django
+  version: 1.8.11
+- name: pymysql
+  version: 0.6.7
+- name: MarkupSafe
+  version: 0.23
+- name: Mako
+  version: 1.0.4
+- name: httplib2
+  version: 0.9.1
+- name: suds
+  version: 0.4
+- name: celery
+  version: 3.1.18
+- name: django-celery
+  version: 3.2.1
+- name: supervisor
+  version: 3.3.3
+- name: uWSGI
+  version: 2.0.13.1
+- name: requests
+  version: 2.9.1
+- name: pdfkit
+  version: 0.6.1
+version: 2.402

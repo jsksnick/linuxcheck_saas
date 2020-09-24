@@ -1,0 +1,172 @@
+<div style="height: 100%;overflow-y: auto;width:100%;padding:20px 10px">
+    <div class="form-horizontal">
+        <div class="form-group">
+            <label class="col-sm-2 control-label">任务名称：</label>
+            <div class="col-sm-8">
+                <input class="form-control" type="text" ng-model="args.name">
+            </div>
+            <span class="text-danger mt5 fl">*</span>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-2 control-label">系统类型：</label>
+            <div class="col-sm-8">
+                <input type="text" style="width:100%" ng-change="changeType()" ng-model="args.os_type"
+                       cw-selectstr2="osTypeOption"/>
+            </div>
+            <span class="text-danger mt5 fl">*</span>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-2 control-label">巡检模板：</label>
+            <div class="col-sm-8">
+                <input type="text" style="width:100%" ng-model="args.check_module_id" cw-selectstr2="moduleOption"/>
+            </div>
+            <span class="text-danger mt5 fl">*</span>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-2 control-label">执行账户：</label>
+            <div class="col-sm-8">
+                <input class="form-control" type="text" id="account" ng-model="args.script_account">
+            </div>
+            <span class="text-danger mt5 fl">*</span>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-2 control-label">接收报告邮箱：</label>
+            <div class="col-sm-8 plugin3_demo addTask_email_style">
+                <input type="text" style="width:100%" ng-model="args.receivers" cw-selectstr2="receiverOpt"/>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-2 control-label">执行时间：</label>
+            <div class="col-sm-10">
+                <div class="radio" style="padding-top: 2px">
+                    <label class="mr10">
+                        <input type="radio" name="time_select" value="now" ng-model="args.time_type">立即
+                    </label>
+                </div>
+                <div class="radio" style="min-height: 40px;">
+                    <label class="mr10" style="float:left;">
+                        <input type="radio" name="time_select" value="time" ng-model="args.time_type">
+                        <span>定时 ——— 开始时间：</span>
+                    </label>
+                    <div style="float:left;">
+                        <input cw-datetimepicker ng-disabled="args.time_type!='time'" type="text" style="width: 220px;"
+                               ng-model="args.runTime">
+                    </div>
+                </div>
+                <div class="radio">
+                    <label class="mr10" style="float:left;">
+                        <input type="radio" name="time_select" value="cycle" ng-model="args.time_type">
+                        <span>周期 ——— 开始时间：</span>
+                    </label>
+                    <div style="float:left;">
+                        <input cw-datetimepicker style="width: 220px;" ng-model="args.cycleTime">
+                    </div>
+                    <span style="margin-left: 10px;float:left;line-height: 30px;">每隔：</span>
+                    <input type="number" ng-disabled="args.time_type!='cycle'" ng-model="args.interval"
+                           style="width: 50px;display: inline-block;float:left;" class="form-control">
+                    <span style="margin-left: 10px;float:left;line-height: 30px;">天执行一次</span>
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-2 control-label">巡检对象：</label>
+            <div class="col-sm-1 dropdown" style="width: 140px; margin-top: 4px;">
+            <a class="dropdown">选择巡检对象<span class="caret"></span></a>
+            <ul class="dropdown-content">
+                <li class="li-style"><a ng-click="select_server()">服务器</a></li>
+                <li class="li-style"><a ng-click="select_group()">动态分组</a></li>
+                <li class="li-style"><a ng-click="select_topo()">业务拓扑</a></li>
+            </ul>
+            </div>
+            <span class="text-danger mt5 fl">*</span>
+            <div class="col-sm-4" ng-if="args.select_type=='ip' && oldData.length>0" style="float: right;right: 15%;">
+                <input type="text" input-hint="请输入IP" class="form-control" ng-model="args.search_ip"
+                       style="width:70%;float: left;">
+                <button class="btn new-button-two mr25" style="float:right;"
+                        ng-click="searchIp()">查找
+                </button>
+            </div>
+            <div class="col-sm-4" ng-if="args.select_type=='group' && oldGroupData.length>0" style="float: right;right: 15%;">
+                <input type="text" input-hint="请输入分组名称" class="form-control" ng-model="args.search_group"
+                       style="width:70%;float: left;">
+                <button class="btn new-button-two mr25" style="float:right;"
+                        ng-click="searchGroup()">查找
+                </button>
+            </div>
+            <div class="col-sm-4" ng-if="args.select_type=='topo' && oldTopoData.length>0" style="float: right;right: 15%;">
+                <input type="text" input-hint="请输入节点名称" class="form-control" ng-model="args.search_node"
+                       style="width:70%;float: left;">
+                <button class="btn new-button-two mr25" style="float:right;"
+                        ng-click="searchNode()">查找
+                </button>
+            </div>
+        </div>
+        <div ng-if="args.select_type=='ip' && oldData.length>0" class="form-group">
+            <label class="col-sm-2 control-label"></label>
+            <div class="col-sm-8">
+                <div ng-grid="gridOption"
+                     style="height:180px;width:100%;overflow-y: auto;overflow-x: hidden"></div>
+            </div>
+        </div>
+        <div ng-if="args.select_type=='group' && oldGroupData.length>0" class="form-group">
+            <label class="col-sm-2 control-label"></label>
+            <div class="col-sm-8">
+                <div ng-grid="gridGroup"
+                     style="height:180px;width:100%;overflow-y: auto;overflow-x: hidden"></div>
+            </div>
+        </div>
+        <div ng-if="args.select_type=='topo' && oldTopoData.length>0" class="form-group">
+            <label class="col-sm-2 control-label"></label>
+            <div class="col-sm-8">
+                <div ng-grid="gridTopo"
+                     style="height:180px;width:100%;overflow-y: auto;overflow-x: hidden"></div>
+            </div>
+        </div>
+    </div>
+    <div style="=width:100%;text-align: center;margin-top: 10px">
+        <button class="btn new-button-two" title="确定" style="margin-right: 15px;background-color: #4a9bff;
+            outline:none;border: 1px solid #eee;" ng-click="confirm()">确定
+        </button>
+        <button class="btn new-button-cancel" ui-sref="taskList" title="取消" style="margin-right: 15px">取消</button>
+    </div>
+</div>
+
+
+<style>
+    .dropdown {
+    position: relative;
+    display: inline-block;
+    }
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        background-color: #f9f9f9;
+        min-width: 130px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        padding: 12px 0px;
+        list-style-type: none;
+        text-align: center;
+        z-index: 10;
+    }
+    .dropdown:hover .dropdown-content {
+        display: block;
+    }
+    .caret {
+        display: inline-block;
+        margin-left: 5px;
+        vertical-align: middle;
+        border-top: 6px dashed;
+        border-top: 4px solid\9;
+        border-right: 4px solid transparent;
+        border-left: 4px solid transparent;
+    }
+    .li-style{
+        padding: 5px 0;
+        color: #ffb83e;
+    }
+    a{
+        color: #000
+    }
+</style>

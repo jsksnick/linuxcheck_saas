@@ -1,0 +1,23 @@
+<div class="content-page" style="padding:5px;">
+    <fieldset class="fieldsetName">
+        <div class="container-fluid">
+            <div style="float:left;">
+                <label style="float:left;margin-top: 5px;">模板名：</label>
+                <input type="text" ng-model="args.name" style="width:150px;float:left;" class="form-control"/>
+            </div>
+            <div style="float:left;margin-left: 5px;">
+                <label style="float:left;margin-top: 5px;">系统类型：</label>
+                <select ng-model="args.os_type" style="width:150px;float:left;" class="form-control">
+                    <option value="">全部</option>
+                    <option value="1">CentOS\Redhat</option>
+                    <option value="2">SUSE</option>
+                </select>
+            </div>
+            <div style="float:left;margin-left:15px;">
+                <button ng-click="searchList()" class="btn new-button">查询</button>
+            </div>
+        </div>
+    </fieldset>
+    <div cw-adaptbody="100" ng-grid="gridOption"
+         style="width:100%;overflow-y: auto;overflow-x: hidden;padding: 10px;"></div>
+</div>

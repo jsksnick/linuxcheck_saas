@@ -1,0 +1,43 @@
+<div style="width:100%;padding:10px;height: 100%;" class="sysSet">
+    <div ng-if="isModify" style="overflow-y: auto;height: 100%;">
+        <div class="bodyTitle">全局配置</div>
+        <table class="table table-bordered table-padding table-height">
+            <tr>
+                <th style="width:30%;">脚本执行账号</th>
+                <td>
+                    <input type="text" class="form-control" ng-model="sysObj.config_account">
+                </td>
+            </tr>
+
+            <tr>
+                <th>配置保留份数（0为全部保留）</th>
+                <td>
+                    <input type="text" class="form-control" ng-model="sysObj.report_save">
+                </td>
+            </tr>
+
+        </table>
+        <div style="width:100%;text-align: center;padding: 10px;">
+            <button ng-click="confirm()" class="btn new-button">保存设置</button>
+            <button ng-click="cancel()" style="margin-left: 5px;width:70px;"
+                    class="btn new-button-cancel">取消
+            </button>
+        </div>
+    </div>
+    <div ng-if="!isModify" style="overflow-y: auto;height: 100%;">
+        <div class="bodyTitle">全局配置</div>
+        <table class="table table-bordered table-height">
+            <tr>
+                <td style="width: 30%">脚本执行账号</td>
+                <td ng-bind="sysObj.config_account"></td>
+            </tr>
+            <tr>
+                <td>配置保留份数（0为全部保留）</td>
+                <td ng-bind="sysObj.report_save"></td>
+            </tr>
+        </table>
+        <div style="width:100%;text-align: center;padding: 10px;">
+            <button ng-click="modify()" style="width: 70px;" class="btn new-button">修改</button>&emsp;
+        </div>
+    </div>
+</div>

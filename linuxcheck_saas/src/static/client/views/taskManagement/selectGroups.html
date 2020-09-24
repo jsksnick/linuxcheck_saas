@@ -1,0 +1,24 @@
+<div class="group-load" style="color: #333;padding:10px;">
+    <div class="radio" style="padding-left:15px;">
+        <label class="mr10">
+            <input type="radio" name="selectOperation" ng-model="selectIndex.value">动态分组
+        </label>
+    </div>
+    <hr>
+    <div class="select_servers">
+        <div style="width:100%;height:100%;">
+            <div style="width:100%;height:35px;">
+                <input type="text" input-hint="请输入分组名称" class="form-control" ng-model="filterObj.group_name" style="width:85%;float: left;">
+                <button class="btn new-button-two" style="float:right;"
+                        ng-click="search_group()">立即查找
+                </button>
+            </div>
+            <div ng-grid="gridOption" style="width:100%;height:300px;padding-top:5px;">
+            </div>
+        </div>
+    </div>
+    <div style="margin-top:5px;text-align: center;width: 100%;padding-bottom: 10px;">
+        <button ng-click="confirm()" class="btn new-button">确认</button>
+        <button ng-click="cancel()" class="btn new-button-cancel">取消</button>
+    </div>
+</div>

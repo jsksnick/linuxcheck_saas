@@ -1,0 +1,1196 @@
+#!/bin/bash
+#Author:Allen
+#Descripttion:Collect server information
+#company:canway
+
+################################################################
+export LANG="en_US.UTF-8"
+if [[ -f /etc/issue ]];then
+cat /etc/issue |grep -i SUSE &>/dev/null
+if [ $? -eq 0 ];then
+    os_type='SUSE'
+	systemnum=$(cat /etc/issue |grep -v ^$ |awk -F'Server' '{print $2}' |awk '{print $1}')
+	arch=$(cat /etc/issue |grep -v ^$ |awk -F'Server' '{print $2}' |awk '{print $1"_"$2}')
+fi
+else
+	[ -f /etc/SuSE-release ] && os_type='SUSE';systemnum=$(cat /etc/SuSE-release | grep -i version | awk '{print $3}');arch=$(cat /etc/SuSE-release | egrep -i 'version|patchlevel' | awk '{print $3}' | sed ':a;N;$!ba;s/\n/_SP/g')
+fi
+system_type=`dmesg |grep -i hypervisor`
+################################################################
+#############################参数配置###########################
+umask_set=${17}
+remote_timeout=${18}
+password_max_day=${19}
+password_min_day=${20}
+password_min_length=${21}
+password_warn_day=${22}
+password_rem_times=${23}
+password_try_times=${24}
+password_lock_time=${25}
+run_mode=${16}
+sys_load_info=${26}
+swap_use_status=${27}
+disk_use_status=${28}
+inode_use_status=${29}
+login_failed_times=${30}
+################################################################
+
+
+#查看服务器型号
+which dmidecode &> /dev/null
+if [ $? -eq 0 ];then
+ProductName=`dmidecode |grep 'Product Name:' |uniq |awk -F ':' '{print $2}' |awk  '{print $1}' |tr -d '\n'`
+echo "product_name=${ProductName}"
+fi
+
+#cpu信息
+cpu_num=`cat /proc/cpuinfo |grep "processor" |uniq |wc -l`
+echo "cpu_info=<table class^\"new_table\">" |tr -d '\n'
+for i in `seq 1 ${cpu_num}`
+do
+    cpu_n=`cat /proc/cpuinfo |grep "processor" |uniq |sed -n "${i}p"`
+    read a b c  < <(echo $cpu_n)
+    cpuinfo=`cat /proc/cpuinfo | grep -A 5  "^${a}.*${c}$" |grep "model name" | tail -n 1 | awk -F ':' '{print $2}' |sed 's/^[ \t]*//g'`
+    echo "<tr><td>${cpuinfo}</td></tr>" |tr -d '\n'
+done
+echo "</table>"
+
+
+
+#本地磁盘信息
+disk_num=`fdisk -l |grep "Disk /dev/" |grep -v mapper |awk '{print $2,$3,$4}' |uniq |awk -F/ '{print $3}' |sed s/[[:space:]]//g |wc -l`
+echo "disk_info=<table class^\"new_table\">" |tr -d '\n'
+for i in `seq 1 $disk_num`
+do
+    disk_info=`fdisk -l |grep "Disk /dev/" |grep -v mapper |awk '{print $2,$3,$4}' |uniq |awk -F/ '{print $3}' |sed -n ${i}p |sed s/[[:space:]]//g |tr -d ',' |tr ':' ' '`
+    read a b < <(echo ${disk_info})
+    echo "<tr><td>$a</td><td>$b</td></tr>" |tr -d '\n'
+done
+echo "</table>"
+
+#内存信息
+mem_k=`cat /proc/meminfo |grep MemTotal |awk '{print $2}'`
+bc=`which bc 2>/dev/null`
+if [ -n "$bc" ];then
+    mem_g=$(printf "%.2f" `echo "scale=2; ${mem_k}/1024/1024" |bc`)
+else
+    mem_g=`free -g |grep  Mem |awk '{print $2}'`
+fi
+mem_num=`dmidecode |grep DDR |wc -l`
+if [ $mem_num != 0 ];then
+    echo "mem_info=内存条数量:${mem_num}条,内存总量:${mem_g}G"
+else
+    echo "mem_info=内存总量:${mem_g}G"
+fi
+
+#光纤卡信息
+lspci=`lspci 2>/dev/null`
+if [ ! -n "${lspci}" ];then
+    echo "fc_info=系统未安装pciuntils工具包，无法获取光纤卡信息"
+else
+    FC=`lspci |grep "Fibre Channel" |awk -F ':' '{print $3}' |awk -F 'to' '{print $1}' |sed 's/^[ \t]*//g'`
+    if [ ! -n "${FC}" ];then
+        echo "fc_info=null"
+    else
+        echo "fc_info=`echo ${FC}`"
+    fi
+fi
+
+#RAID卡信息
+lspci=`lspci 2>/dev/null`
+if [ ! -n "${lspci}" ];then
+    echo "raid_info=系统未安装pciuntils工具包，无法获取raid卡信息"
+else
+    RAID_ID=`lspci |grep RAID |awk -F ':' '{print $NF}' |awk -F '(' '{print $1}' |awk -F '[' '{print $1}' |sed 's/^[ \t]*//g'`
+    if [ ! -n "${RAID_ID}" ];then
+        echo "raid_info=null"
+    else
+        echo "raid_info=${RAID_ID}"
+    fi
+fi
+
+#网卡信息
+lspci=`lspci 2>/dev/null`
+if [ ! -n "${lspci}" ];then
+   echo "nic_info=系统未安装pciuntils工具包，无法获取网卡信息"
+else
+    nic_name=`lspci |grep -i eth |awk -F': ' '{print $2}'`
+    nic_num=`lspci |grep -i eth |awk -F': ' '{print $2}' |wc -l`
+    if [ $nic_num == 0 ];then
+        echo "nic_info=未安装网卡"
+    elif [ $nic_num == 1 ];then
+        echo "nic_info=${nic_name}"
+    else
+        nic_name_a=`lspci |grep -i eth |awk -F': ' '{print $2}' |tr '\n' ' '`
+        echo "nic_info=<table class^\"new_table\"><tr><td>${nic_name_a}</td></tr></table>"
+    fi
+fi
+
+#主机名词
+hostname=`hostname`
+echo "hostname=${hostname}"
+
+#操作系统版本
+sys_name=`cat /etc/SuSE-release | head -n1`
+echo "operating_system=${sys_name}"
+
+#系统内核版本
+uname=`uname -r`
+echo "system_kernel=${uname}"
+
+#系统安装时间
+rpm_time=`rpm -qa |grep ^coreutils-* |head -n 1`
+system_install_time=`rpm -qi ${rpm_time} |grep "Build Date" |awk -F"Build Date" '{print $2}' |awk '{print $5,$4,$3,$2,$6}'`
+echo "system_install_time=${system_install_time=}"
+
+#时区设置
+
+time_zone=`cat /etc/sysconfig/clock |grep  ZONE |awk -F'"' '{print $2}' |grep -v ^$ | head -1`
+echo "time_set=${time_zone}"
+
+
+#带Shell的用户
+shell_user=`cat /etc/passwd |egrep -v "nologin|shutdown" |grep sh |awk -F ':' '{print $1}' |tr '\n' ',' |sed "s/\,$//g"`
+echo "shell_account=${shell_user}"
+
+#LIMIT参数设置情况
+m=`cat /etc/security/limits.conf |grep -v "^#" |grep -v "^$"  |tr -s [:space:]`
+n=`cat /etc/security/limits.conf |grep -v "^#" |grep -v "^$"  |tr -s [:space:] |wc -l`
+if [ -n "${m}" ];then
+    echo "limit_set=<table class^\"new_table\">" |tr -d '\n'
+    for i in  `seq 1 $n`
+    do
+        if [ -n "${m}" ];then
+            read a b c d < <(cat /etc/security/limits.conf |grep -v "^#" |grep -v "^$"  |tr -s [:space:] |sed -n ${i}p)
+            echo "<tr><td>$a</td><td>$b</td><td>$c</td><td>$d</td></tr>" |tr -d '\n'
+        fi
+    done
+    echo "</table>"
+else
+    echo "limit_set=null"
+fi
+
+#openssh开启的端口
+ssh_port=`cat /etc/ssh/sshd_config |grep -v "^#" |grep Port |awk '{print $2}'`
+if [ -n "${ssh_port}" ];then
+    echo "openssh_port=${ssh_port}"
+else
+    echo "openssh_port=22"
+fi
+
+#sftp是否开启
+sftp=`cat /etc/ssh/sshd_config |grep -v "^#" |grep sftp |grep -i subsystem`
+if [ -n "$sftp" ];then
+    echo "openssh_sftp_status=sftp已开启"
+else
+    echo "openssh_sftp_status=sftp禁用"
+fi
+
+#密钥认证机制
+ssh_pass=`cat /etc/ssh/sshd_config |grep -v "^#" |grep "PasswordAuthentication" |grep 'yes'`
+if [ -n "$ssh_pass" ];then
+    echo "openssh_key_auth=允许密码登陆"
+else
+    echo "openssh_key_auth=禁止密码登陆"
+fi
+
+#系统运行时间
+uptime=`uptime |awk -F ',' '{print $1}' |awk '{print $3}'`
+echo "sys_running_time=${uptime}"
+
+#物理内存使用情况
+
+mem_total_m=`free -m |grep Mem |awk '{print $2}'`
+real_used_m=`free -m | sed -n '3p' | awk '{print $3}'` #实际占用内存
+real_free_m=`free -m | sed -n '3p' | awk '{print $4}'` #实际可用内存
+mem_per=$(printf "%d%%" $((${real_used_m}*100/${mem_total_m})))
+echo "mem_use_status=<table class^\"new_table\"><tr><th>内存总量</th><th>已用内存</th><th>空闲内存</th><th>内存使用率</th></tr><tr><td>${mem_total_m}M</td><td>${real_used_m}M</td><td>${real_free_m}M</td><td>${mem_per}</td></tr></table>"
+
+
+#已登录用户信息
+m=`who |wc -l`
+if [ $m == 0 ];then
+    echo "login_account_info=null"
+else
+    echo  "login_account_info=<table class^\"new_table\">" |tr -d '\n'
+    for i in `seq 1 $m`
+    do
+        read a b c d e f < <(who |tr -s [:space:] |sed -n ${i}p)
+        echo "<tr><td>${a}</td><td>${b}</td><td>${c}</td><td>${d}</td><td>${e}</td><td>${f}</td></tr>" |tr -d '\n'
+    done
+    echo "</table>"
+fi
+
+#已配置的定时任务
+#for user in $(cut -f1 -d: /etc/passwd)
+#do
+#    for i in `crontab -l -u ${user} 2>/dev/null`
+#    do
+#        n=`crontab -l -u ${user} |wc -l`
+#        for m in `seq 1 $n`
+#        do
+#            a=`crontab -l -u ${user} 2>/dev/null |sed -n "${m}p" |awk 'BEGIN{} {print $1","$2","$3","$4","$5","$6",} END{}'`
+#            b=`crontab -l -u ${user} 2>/dev/null |sed -n "${m}p" |awk '{for(i=7;i<=NF;i++) printf("%s ", $i)}'`
+#            echo "${a}${b};"
+#        done
+#    done
+#done
+z=0
+echo "task_info=<table class^\"new_table\">" |tr -d '\n'
+for user in $(cut -f1 -d: /etc/passwd)
+do
+    cron=`crontab -l -u ${user} 2>/dev/null | grep -v '^\s*#'`
+    if [ -n "$cron" ];then
+        n=`crontab -l -u ${user} 2>/dev/null | grep -v '^\s*#' |wc -l`
+        for m in `seq 1 $n`
+        do
+            let z+=1
+            read a b c d e f < <(crontab -l -u ${user} 2> /dev/null | grep -v '^\s*#' |sed -n "${m}p" |sed "s/$/;/g")
+            echo "<tr><td>$a</td><td>$b</td><td>$c</td><td>$d</td><td>$e</td><td>$user</td><td>$f</td><tr>" |tr -d '\n'
+        done
+    fi
+done
+if [ $z == 0 ];then
+        echo "null</table>"
+else
+        echo "</table>"
+fi
+
+#开机自动挂载的分区
+n=`cat /etc/fstab |grep -v "^\s*#" |grep -v "^$" |wc -l`
+echo  "boot_mount_part=<table class^\"new_table\">" |tr -d '\n'
+for i in `seq 1 $n`
+do
+    m=`cat /etc/fstab |grep -v "^\s*#" |grep -v  ^$ |sed -n "${i}p" |tr -s [:space:]`
+    read a b c d e f < <(echo $m)
+    a=`echo  $a |tr '=' '^' 2>/dev/null`
+    d=`echo  $d |tr '=' '^' 2>/dev/null`
+    echo "<tr><td>$a</td><td>$b</td><td>$c</td><td>$d</td><td>"$e"</td><td>"$f"</td><tr>" |tr -d '\n'
+done
+echo "</table>"
+
+#网卡信息
+ethernet_info=`ip a |grep "inet " | egrep -v '127.0.0.1|bond' |grep -v MASTER|awk '{print $NF,$2}' | grep -v 'lo'`
+ethernet_num=`ip a |grep "inet " | egrep -v '127.0.0.1|bond' |grep -v MASTER|awk '{print $NF,$2}' | grep -v 'lo' |wc -l`
+echo  "ethernet_info=<table class^\"new_table\">" |tr -d '\n'
+for i in `seq 1 $ethernet_num`
+do
+    ethernet=`ip a |grep "inet " | egrep -v '127.0.0.1|bond' |grep -v MASTER|awk '{print $NF,$2}' | grep -v 'lo' |sed -n ${i}p`
+    read a b < <(echo $ethernet)
+    echo "<tr><td>$a</td><td>$b</td></tr>" |tr -d '\n'
+done
+echo "</table>"
+
+
+#网卡绑定信息
+bond_name=`ip a |grep  MASTER |awk -F': ' '{print $2}'`
+if [ -n "${bond_name}" ];then
+    echo "nic_bond_info=<table class^\"new_table\"><tr><th>name</th><th>member</th><th>status</th></tr>" |tr -d '\n'
+    for bond in $bond_name
+    do
+        slave_name=`ip a |grep master|grep $bond |awk -F': ' '{print $2}' |tr '\n' ' ' |sed 's/[ \t]*$//g'`
+        if [ -n "${slave_name}" ];then
+            echo "<tr><td>${bond}</td>${slave_name}<td>启用</td></tr>" |tr -d '\n'
+        else
+            echo "<tr><td>${bond}</td>${slave_name}<td>未启用</td></tr>" |tr -d '\n'
+        fi
+    done
+    echo "</table>"
+else
+    echo "nic_bond_info=null"
+fi
+
+#NFS挂载状态
+nfs_info=$(mount 2>/dev/null | grep ':/' |tr '\n' ';')
+if [ -n "${nfs_info}" ];then
+   echo "nfs_info=${nfs_info}"
+else
+    echo "nfs_info=null"
+fi
+
+#多路径管理软件运行状态
+multipathflag=1
+multi_status=`multipath -ll 2>/dev/null|grep status`
+if [ -n "${multi_status}" ];then
+    multipathflag=0
+    multi_err=`multipath -ll |egrep -i 'failed|disabled'`
+    if [ -n "${multi_err}" ];then
+        echo "multi_path_info=多路径异常，请检查"
+    else
+        echo "multi_path_info=正常"
+    fi
+fi
+powermt_status=`powermt display dev=all 2>/dev/null |grep state`
+if [ -n "${powermt_status}" ];then
+    multipathflag=0
+    powermt_err=`powermt display dev=all |egrep -i 'failed|disabled'`
+    if [ -n "${powermt_err}" ];then
+        echo "multi_path_info=多路径异常,请检查"
+    else
+        echo "multi_path_info=正常"
+    fi
+fi
+if [ ${multipathflag} -ne 0 ];then
+    echo "multi_path_info=null"
+fi
+
+#监听的端口和进程信息
+netstat=`which netstat 2>/dev/null`
+if [ ! -n "$netstat" ];then
+    echo "monitor_port=系统未安装syssat组件，无法获取端口进程信息"
+else
+    num=`netstat -tunpel |awk '{print  $1,$4,$NF}' |sed '1,2d' |wc -l`
+    echo "monitor_port=<table class^\"new_table\"><tr><th>protocol</th><th>port</th><th>process_name</th></tr>" |tr -d '\n'
+    for i in `seq 1 $num`
+    do
+        read a b c < <(netstat -tunpel |awk '{print $1,$4,$NF}' |sed '1,2d' |sed -n "${i}p")
+        echo "<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>" |tr -d '\n'
+    done
+    echo '</table>'
+fi
+
+#############################参数配置###########################
+#run_mode=3
+#umask_set=027
+#password_max_day=90
+#password_min_day=6
+#password_min_length=8
+#password_warn_day=10
+#password_rem_times=5
+#password_try_times=3
+#password_lock_time=600
+#remote_timeout=900
+#sys_load_info=3
+#swap_use_status=30%
+#disk_use_status=90%
+#inode_use_status=90%
+#login_failed_times=100
+################################################################
+#NTP配置
+warn=0
+ntpserver=`cat /etc/ntp.conf 2>/dev/null |egrep '^(\s.*)?server' | egrep -v 'rhel|127.127.1.0|centos' |awk '{print $2}' |tr '\n' ',' |sed "s/\,$//g"`
+case $arch in
+11_SP4)
+rcntp status &> /dev/null
+ntpd=$?
+;;
+12_SP3)
+rcntpd status &> /dev/null
+ntpd=$?
+;;
+*)
+;;
+esac
+#ntpdate=`cat /etc/crontab |grep -v "^#" |grep ntpdate`
+ntpdate=`cat /var/spool/cron/tabs/root |grep -v '^\s*#'|grep 'ntpdate'` || ntpdate=''
+if [ -n "${ntpserver}" -a "${ntpd}" -eq 0 ];then
+    warn=1
+    ntpd_status=`ntpq -p 2>/dev/null |egrep '*|+'`
+    if [ -n "${ntpd_status}" ];then
+        echo "ntp_set=系统设置了时间服务器,且连接正常:${ntpserver}" |tr -d '\n'
+    else
+        echo "ntp_set=系统配置了时间服务器，但连接异常，请检查:${ntpserver}" |tr -d '\n'
+    fi
+fi
+if [[ ${warn} -eq 1 && -n "${ntpdate}" ]];then
+echo ";系统还设置ntpdate计划任务同步时间服务器:" |tr -d '\n' && echo "${ntpdate}" |tr -d '\n'
+elif [[ ${warn} -eq 0 && -n "${ntpdate}" ]];then
+echo "ntp_set=已设置ntpdate计划任务同步时间服务器:" | tr -d '\n' && echo "${ntpdate}" |tr -d '\n'&& warn=1
+fi
+if [[ ${warn} -eq 1 ]];then
+echo '@@0'
+elif [[ ${warn} -eq 0 ]];then
+echo "ntp_set=未设置@@1"
+fi
+
+#系统运行模式
+runlevel=`runlevel |awk '{print $2}'`
+warn=0
+if [ ${runlevel} -ne ${run_mode} ];then
+    warn=1
+    echo "run_mode=${runlevel}@@1"
+else
+    echo "run_mode=${runlevel}@@0"
+fi
+
+#日志审核
+
+rcsyslog status &>/dev/null
+syslog=$?
+if [ "${syslog}" -eq 0 ];then
+	  echo "syslog_audit=启用@@0"
+else
+    echo "syslog_audit=未启用@@1"
+fi
+
+
+#syslog日志转储策略
+logrotate=`cat /etc/logrotate.conf |grep -v "^#" |grep -v ^$ |egrep -w 'rotate'`
+if [ -n "${logrotate}" ];then
+    echo "syslog_dump=启用@@0"
+else
+    echo "syslog_dump=未启用@@1"
+fi
+
+#系统审计
+
+rcauditd status &>/dev/null
+audit=$?
+if [ "${audit}" -eq 0 ];then
+    echo "sys_audit=启用@@0"
+else
+    echo "sys_audit=未启用@@1"
+fi
+
+
+#网络日志服务器功能
+
+syslog=`cat /etc/syslog-ng/syslog-ng.conf 2>/dev/null | grep -v '^\s*#' | grep -v '^$' | tr -s [[:space:]]`
+rcsyslog status &>/dev/null
+if [[ -n $syslog && $? -eq 0 ]];then
+    echo "log_net=启用@@0"
+else
+    echo "log_net=未启用@@1"
+fi
+
+
+
+#glipc漏洞
+#rv=0
+#case $arch in
+#11_SP4)
+#for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' glibc ); do
+#    glibc_ver=$( echo "$glibc_nvr" | awk -F- '{ print $3 }' )
+#    glibc_maj=$( echo "$glibc_ver" | awk -F. '{ print $2 }')
+#    glibc_min=$( echo "$glibc_ver" | awk -F. '{ print $3 }')
+#    if [ "$glibc_maj" -ge 95   -a  \( "$glibc_min" -ge 2 \) ]; then
+#        # fixed upstream version
+#        echo '' |tr -d '\n'
+#    else
+#        # all RHEL updates include CVE in rpm %changelog
+#        if rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2015-7547'; then
+#        echo '' |tr -d '\n'
+#        else
+#            rv=1
+#        fi
+#    fi
+#done
+#;;
+#12_SP3)
+#for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' glibc ); do
+#    glibc_ver=$( echo "$glibc_nvr" | awk -F- '{ print $3 }' )
+#    glibc_maj=$( echo "$glibc_ver" | awk -F. '{ print $1 }')
+#    glibc_min=$( echo "$glibc_ver" | awk -F. '{ print $2 }')
+#    if [ "$glibc_maj" -ge 61   -a  \( "$glibc_min" -ge 3 \) ]; then
+#        # fixed upstream version
+#        echo '' |tr -d '\n'
+#    else
+#        # all RHEL updates include CVE in rpm %changelog
+#        if rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2015-7547'; then
+#        echo '' |tr -d '\n'
+#        else
+#            rv=1
+#        fi
+#    fi
+#done
+#;;
+#*)
+#;;
+#esac
+#
+#if [ $rv -ne 0 ]; then
+#    echo "glipc_vulnerabilities=CVE-2015-7547@@1"
+#else
+#    echo "glipc_vulnerabilities=无@@0"
+#fi
+a=0
+    echo "glibc_vulnerabilities=" | tr -d '\n'
+for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' glibc ); do
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2018-11236' &> /dev/null; then
+		echo 'CVE-2018-11236' | tr -d '\n'
+		let a+=1
+    	fi
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2018-11237' &> /dev/null; then
+		echo ' CVE-2018-11237' | tr -d '\n'
+		let a+=1
+    	fi
+done
+if [[ $a -ne 0 ]];then
+        echo "@@1"
+else
+        echo "无@@0"
+fi
+
+#bash漏洞
+#VULNERABLE=false
+#CVE20146271=$(env 'x=() { :;}; echo vulnerable' 'BASH_FUNC_x()=() { :;}; echo vulnerable' bash -c "echo test" 2>&1 | grep 'vulnerable' | wc -l)
+#if [ $CVE20146271 -gt 0 ]; then
+#    VULNERABLE=true
+#fi
+#CVE20146277=$((shellshocker="() { x() { _;}; x() { _;} <<a; }" bash -c date 2>/dev/null || echo vulnerable) | grep 'vulnerable' | wc -l)
+#if [ $CVE20146277 -gt 0 ]; then
+#    VULNERABLE=true
+#fi
+#CVE20146278=$(shellshocker='() { echo vulnerable; }' bash -c shellshocker 2>/dev/null | grep 'vulnerable' | wc -l)
+#if [ $CVE20146278 -gt 0 ]; then
+#    VULNERABLE=true
+#fi
+#CVE20147169=$((cd /tmp; rm -f /tmp/echo; env X='() { (a)=>\' bash -c "echo echo nonvuln" 2>/dev/null; [[ "$(cat echo 2> /dev/null)" == "nonvuln" ]] && echo "vulnerable" 2> /dev/null) | grep 'vulnerable' | wc -l)
+#if [ $CVE20147169 -gt 0 ]; then
+#    VULNERABLE=true
+#fi
+#CVE20147186=$((bash -c 'true <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF <<EOF' 2>/dev/null || echo "vulnerable") | grep 'vulnerable' | wc -l)
+#if [ $CVE20147186 -gt 0 ]; then
+#    VULNERABLE=true
+#fi
+#CVE20147187=$(((for x in {1..200}; do echo "for x$x in ; do :"; done; for x in {1..200}; do echo done; done) | bash || echo "vulnerable") | grep 'vulnerable' | wc -l)
+#if [ $CVE20147187 -gt 0 ]; then
+#    VULNERABLE=true
+#fi
+#
+#if [[ "$VULNERABLE" = true ]];then
+#	echo "bash_vulnerabilities=" |tr -d '\n'
+#	[[ "${CVE20146271}" -gt 0 ]] && echo "CVE-2014-6271" |tr -d '\n'
+#	[[ "${CVE20146277}" -gt 0 ]] && echo ",CVE-2014-6277" |tr -d '\n'
+#	[[ "${CVE20146278}" -gt 0 ]] && echo ",CVE-2014-6278" |tr -d '\n'
+#	[[ "${CVE20147169}" -gt 0 ]] && echo ",CVE-2014-7169" |tr -d '\n'
+#	[[ "${CVE20147186}" -gt 0 ]] && echo ",CVE-2014-7186" |tr -d '\n'
+#	[[ "${CVE20147187}" -gt 0 ]] && echo ",CVE-2014-7187" |tr -d '\n'
+#	echo "@@1"
+#else
+#	echo "bash_vulnerabilities=无@@0"
+#fi
+
+a=0
+case $arch in
+11_SP4)
+echo "bash_vulnerabilities=" | tr -d '\n'
+for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' bash ); do
+    glibc_ver=$( echo "$glibc_nvr" | awk -F- '{ print $3 }' )
+    glibc_maj=$( echo "$glibc_ver" | awk -F. '{ print $1 }')
+    glibc_min=$( echo "$glibc_ver" | awk -F. '{ print $2 }')
+    if [ "$glibc_maj" -lt 147   -o  \( "$glibc_maj" -eq 147 -a  "$glibc_min" -lt 29 \) ]; then
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2016-7543'; then
+                echo 'CVE-2016-7543' | tr -d '\n'
+                let a+=1
+        fi
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2016-0634'; then
+                echo ' CVE-2016-0634' | tr -d '\n'
+                let a+=1
+        fi
+        if [ "$glibc_maj" -lt 147   -o  \( "$glibc_maj" -eq 147 -a "$glibc_min" -lt 35 \) ]; then
+        	if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2016-9401'; then
+			echo ' CVE-2016-9401' | tr -d '\n'
+			let a+=1
+        	fi
+	fi
+    fi
+done
+
+;;
+12_SP3)
+    echo "bash_vulnerabilities=" | tr -d '\n'
+for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' bash ); do
+    glibc_ver=$( echo "$glibc_nvr" | awk -F- '{ print $3 }' )
+    glibc_maj=$( echo "$glibc_ver" | awk -F. '{ print $1 }')
+    glibc_min=$( echo "$glibc_ver" | awk -F. '{ print $2 }')
+    if [ "$glibc_maj" -lt 83   -o  \( "$glibc_maj" -eq 83 -a "$glibc_min" -lt 10 \) ]; then
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2016-0634'; then
+		echo 'CVE-2016-0634' | tr -d '\n'
+		let a+=1
+    	fi
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2016-7543'; then
+		echo ' CVE-2016-7543' | tr -d '\n'
+		let a+=1
+    	fi
+    fi
+done
+;;
+esac
+if [[ $a -ne 0 ]];then
+        echo "@@1"
+else
+        echo "无@@0"
+fi
+
+
+
+#openssl漏洞
+rv=0
+case $arch in
+11_SP4)
+for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' openssl ); do
+    glibc_ver=$( echo "$glibc_nvr" | awk -F- '{ print $3 }' )
+    glibc_maj=$( echo "$glibc_ver" | awk -F. '{ print $2 }')
+    glibc_min=$( echo "$glibc_ver" | awk -F. '{ print $3 }')
+    if [ "$glibc_maj" -ge 105   -a  \( "$glibc_min" -ge 15 \) ]; then
+        echo '' |tr -d '\n'
+    else
+        if rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2018-0737'; then
+        echo '' |tr -d '\n'
+        else
+            rv=1
+        fi
+    fi
+done
+;;
+12_SP3)
+for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' openssl ); do
+    glibc_ver=$( echo "$glibc_nvr" | awk -F- '{ print $3 }' )
+    glibc_maj=$( echo "$glibc_ver" | awk -F. '{ print $1 }')
+    glibc_min=$( echo "$glibc_ver" | awk -F. '{ print $2 }')
+    if [ "$glibc_maj" -ge 60   -a  \( "$glibc_min" -ge 39 \) ]; then
+        echo '' |tr -d '\n'
+    else
+        if rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2018-0737'; then
+        echo '' |tr -d '\n'
+        else
+            rv=1
+        fi
+    fi
+done
+;;
+esac
+
+if [ $rv -ne 0 ]; then
+    echo "openssl_vulnerabilities=CVE-2018-0737@@1"
+else
+    echo "openssl_vulnerabilities=无@@0"
+fi
+
+
+#openssh漏洞
+a=0
+case $arch in
+11_SP4)
+echo "openssh_vulnerabilities=" | tr -d '\n'
+for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' openssh ); do
+    glibc_ver=$( echo "$glibc_nvr" | awk -F- '{ print $3 }' )
+    glibc_maj=$( echo "$glibc_ver" | awk -F. '{ print $1 }')
+    glibc_min=$( echo "$glibc_ver" | awk -F. '{ print $2 }')
+    if [ "$glibc_maj" -lt 36   -o  \( "$glibc_maj" -eq 36 -a  "$glibc_min" -lt 3 \) ]; then
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2016-10708'; then
+                echo 'CVE-2016-10708' | tr -d '\n'
+                let a+=1
+        fi
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2017-15906'; then
+                echo ' CVE-2017-15906' | tr -d '\n'
+                let a+=1
+        fi
+    fi
+done
+
+;;
+12_SP3)
+    echo "openssh_vulnerabilities=" | tr -d '\n'
+for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' openssh ); do
+    glibc_ver=$( echo "$glibc_nvr" | awk -F- '{ print $3 }' )
+    glibc_maj=$( echo "$glibc_ver" | awk -F. '{ print $1 }')
+    glibc_min=$( echo "$glibc_ver" | awk -F. '{ print $2 }')
+    if [ "$glibc_maj" -lt 74   -a  \( "$glibc_min" -lt 19 \) ]; then
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2016-10708'; then
+		echo 'CVE-2016-10708' | tr -d '\n'
+		let a+=1
+    	fi
+        if [ "$glibc_maj" -lt 74   -a  \( "$glibc_min" -lt 11 \) ]; then
+        	if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2017-15906'; then
+			echo ' CVE-2017-15906' | tr -d '\n'
+			let a+=1
+        	fi
+	fi
+    fi
+done
+;;
+esac
+if [[ $a -ne 0 ]];then
+        echo "@@1"
+else
+        echo "无@@0"
+fi
+
+
+#ntp漏洞
+a=0
+echo "ntp_vulnerabilities=" | tr -d '\n'
+for glibc_nvr in $( rpm -q --qf '%{name}-%{version}-%{release}\n' ntp ); do
+        if ! rpm -q --changelog $glibc_nvr | more | grep CVE | grep 'CVE-2018-12327' &> /dev/null; then
+                echo 'CVE-2018-12327' | tr -d '\n'
+                let a+=1
+        fi
+done
+if [[ $a -ne 0 ]];then
+        echo "@@1"
+else
+        echo "无@@0"
+fi
+
+
+
+#空口令的帐号
+emptypasswd=`awk -F: '($2 == "") { print $1 }' /etc/shadow |tr '\n' ',' |sed "s/\,$//g"`
+if [ "$emptypasswd" ];then
+    echo "empty_password_account=${emptypasswd}@@1"
+else
+    echo "empty_password_account=null@@0"
+fi
+
+#UID为0的非root帐号
+uid0=`awk -F: '($3 == 0) { print $1 }' /etc/passwd |grep -v root |tr '\n' ',' |sed "s/\,$//g"`
+if [ -n "$uid0" ];then
+    echo "uid0_account=${uid0}@@1"
+else
+    echo "uid0_account=null@@0"
+fi
+
+#UMASK值设置
+if [ -f /etc/profile ];then
+umask_v=`cat /etc/profile |grep -v "^#" |grep -i umask|sed -n '1p' |awk '{print $2}'`
+	if [ -z $umask_v ];then
+	umask_v=`umask | sed 's/0//'`
+	fi
+fi
+if [ $umask_set -ne $umask_v ];then
+    echo "umask_set=${umask_v}@@1"
+else
+    echo "umask_set=${umask_v}@@0"
+fi
+
+
+#密码最长使用天数
+max_day=`more /etc/login.defs | grep -E "PASS_MAX_DAYS" | grep -v "^\s*#" |awk -F' ' '{print $2}'`
+if [ $max_day -le $password_max_day ];then
+    echo "password_max_day=${max_day}@@0"
+else
+    echo "password_max_day=${max_day}@@1"
+fi
+
+#密码最短使用天数
+min_day=`more /etc/login.defs | grep -E "PASS_MIN_DAYS" | grep -v "^\s*#" |awk -F' ' '{print $2}'`
+if [[ -n $min_day ]];then
+    if [ $min_day -ge $password_min_day ];then
+        echo "password_min_day=${min_day}@@0"
+    else
+        echo "password_min_day=${min_day}@@1"
+    fi
+else
+    echo "password_min_day=未设置@1"
+fi
+
+#密码需要满足的最短长度
+min_len=`more /etc/login.defs | grep -E "PASS_MIN_LEN" | grep -v "^\s*#" |awk -F' ' '{print $2}'`
+if [[ -n $min_len ]];then
+    if [[ $min_len -ge $password_min_length ]];then
+        echo "password_min_length=${min_len}@@0"
+    else
+        echo "password_min_length=${min_len}@@1"
+    fi
+else
+    echo 'password_min_length=未设置@@1'
+fi
+
+#用户密码到期前警告天数
+warn_age=`more /etc/login.defs | grep -E "PASS_WARN_AGE" | grep -v "#" |awk -F' ' '{print $2}'`
+if [[ $warn_age -ge $password_warn_day ]];then
+    echo "password_warn_day=${warn_age}@@0"
+else
+    echo "password_warn_day=${warn_age}@@1"
+fi
+
+#用户密码复杂度策略
+pam_cracklib=$(cat /etc/pam.d/common-password |egrep -v "^(s*)#" |grep password |grep pam_cracklib.so)
+if [ -n "$pam_cracklib" ];then
+    dcredit=`echo ${pam_cracklib} |grep dcredit |awk -F'dcredit=-' '{print $2}' |awk '{print $1}' |uniq |head -n 1`
+    lcredit=`echo ${pam_cracklib} |grep lcredit |awk -F'lcredit=-' '{print $2}' |awk '{print $1}' |uniq |head -n 1`
+    ucredit=`echo ${pam_cracklib} |grep ucredit |awk -F'ucredit=-' '{print $2}' |awk '{print $1}' |uniq |head -n 1`
+    ocredit=`echo ${pam_cracklib} |grep ocredit |awk -F'ocredit=-' '{print $2}' |awk '{print $1}' |uniq |head -n 1`
+    retry=`echo ${pam_cracklib} |grep retry |awk -F'retry=' '{print $2}' |awk '{print $1}' |uniq | head -n 1`
+    minlen=`echo ${pam_cracklib} |grep minlen |awk -F'minlen=' '{print $2}' |awk '{print $1}' |uniq | head -n 1`
+    difok=`echo ${pam_cracklib} |grep difok |awk -F'difok=' '{print $2}' |awk '{print $1}' |uniq | head -n 1`
+    enforce_for_root=`echo ${pam_cracklib} |grep enforce_for_root  |uniq |head -n 1`
+
+fi
+a=0
+echo "password_complexity=" |tr -d '\n'
+[ -n "${dcredit}" ] && let a+=1 && echo "${dcredit}个数字" |tr -d '\n'
+[ -n "${lcredit}" ] && let a+=1 && echo ",${lcredit}个小写字母" |tr -d '\n'
+[ -n "${ucredit}" ] && let a+=1 && echo ",${ucredit}个大写字母" |tr -d '\n'
+[ -n "${ocredit}" ] && let a+=1 && echo ",${ocredit}个特殊字符" |tr -d '\n'
+[ -n "${minlen}" ] && let a+=1 && echo ",最小长度为${minlen}" |tr -d '\n'
+[ -n "${difok}" ] && let a+=1 && echo ",最小允许和旧密码相同字符数为${difok}个" |tr -d '\n'
+[ $a -ne 0 ] && [ -n "${retry}" ] && let a+=1 && echo ",最多可以${retry}次输入密码后报错" |tr -d '\n'
+if [ $a -ne 0 ];then
+	echo "@@0"
+else
+	echo "未设置@@1"
+fi
+
+#密码重复使用次数
+rem=`cat /etc/pam.d/common-password |grep -v "^#" |egrep password |grep 'pam_unix.*.so' |grep remember |awk -F'remember=' '{print $2}' |awk '{print $1}'`
+precheck=`cat /etc/pam.d/common-password |grep -v "^#" |egrep password |grep pam_pwcheck.so |grep remember |awk -F'remember=' '{print $2}' |awk '{print $1}'`
+if [ -z "${rem}"  -a -z "${precheck}" ];then
+    echo "password_rem_times=未设置@@1"
+else
+    if [ -z $precheck ];then
+     [ $rem -lt $password_rem_times ] && echo "password_rem_times=${rem}@@1" || echo "password_rem_times=${rem}@@0"
+   elif [ -z $rem ];then
+     [ $precheck -lt $password_rem_times ] && echo "password_rem_times=${precheck}@@1" || echo "password_rem_times=${precheck}@@0"
+   else
+    [ $rem -lt $password_rem_times ] && echo "password_rem_times=${rem}@@1" || echo "password_rem_times=${rem}@@0"
+   fi
+fi
+
+
+#密码允许尝试登录次数
+deny=`cat /etc/pam.d/login |grep -v "^#" |egrep auth |grep pam_tally2.so |grep deny`
+deny_time=`[ -n "$deny" ] && echo ${deny#*deny=} |awk '{print $1}'`
+if [ ! -n "${deny_time}" ];then
+    echo "password_try_times=未设置@@1"
+else
+    [ $deny_time -gt $password_try_times ] && echo "password_try_times=${deny_time}@@1" || echo "password_try_times=${deny_time}@@0"
+fi
+
+#密码登陆失败锁定时间
+deny=`cat /etc/pam.d/login |grep -v "^#" |egrep auth |grep pam_tally2.so |grep deny`
+unlocktime=`[ -n "$deny" ] && echo ${deny#*unlock_time=} |awk '{print $1}'`
+if [ ! -n "${unlocktime}" ];then
+    echo "password_lock_time=未设置@@1"
+else
+    [ $unlocktime -lt $password_lock_time ] && echo "password_lock_time=${unlocktime}@@1" || echo "password_lock_time=${unlocktime}@@0"
+fi
+
+#IP伪装功能状态
+ip_spool=`cat /etc/host.conf 2>/dev/null |grep -v "^#" |grep nospoof |grep on`
+if [ -n "${ip_spool}" ];then
+    echo "ip_disguise=已关闭@@0"
+else
+    echo "ip_disguise=未关闭@@1"
+fi
+
+#是否关闭多ip绑定
+ip_multi=`cat /etc/host.conf 2>/dev/null |grep -v "^#" |grep multi |grep off`
+if [ -n "${ip_multi}" ];then
+    echo "ip_multi=已关闭@@0"
+else
+    echo "ip_multi=未关闭@@1"
+fi
+
+#数据包转发功能状态
+ip_forward=`cat /proc/sys/net/ipv4/ip_forward`
+if [ $ip_forward -ne 0 ];then
+    echo "ip_forward=未禁用@@1"
+else
+    echo "ip_forward=已禁用@@0"
+fi
+
+#ICMP接收重定向转发功能
+all_accept_redirects=`cat /proc/sys/net/ipv4/conf/all/accept_redirects`
+default_accept_redirects=`cat /proc/sys/net/ipv4/conf/default/accept_redirects`
+if [ ${all_accept_redirects} -ne 0 -a ${default_accept_redirects} -ne 0 ];then
+    echo "icmp_accept_redirect=未关闭@@1"
+else
+    echo "icmp_accept_redirect=已关闭@@0"
+fi
+
+#ICMP发送重定向转发功能
+icmp_send_redirect=`cat /proc/sys/net/ipv4/conf/all/send_redirects`
+if [ ${icmp_send_redirect} -ne 0 ];then
+    echo "icmp_send_redirect=未关闭@@1"
+else
+    echo "icmp_send_redirect=已关闭@@0"
+fi
+
+#远程连接的超时时间（s）
+TMOUT=`cat /etc/profile |grep -v "^#" |grep -i TMOUT |egrep -o '[0-9].*'`
+if [ -z "${TMOUT}" ];then
+    echo "remote_timeout=未设置@@1"
+else
+    [ ${TMOUT} -le $remote_timeout ] && echo "remote_timeout=${TMOUT}@@0"
+    [ ${TMOUT} -gt $remote_timeout ] && echo "remote_timeout=${TMOUT}@@1"
+fi
+
+#GRUB密码设置
+case $arch in
+11_SP4)
+grub2pas=`cat /etc/grub.conf |grep -v "^#" |grep password`
+;;
+12_SP3)
+grub2pas=`cat /etc/grub.d/00_header |grep -v "^#" |grep password`
+;;
+esac
+
+if [ -n "${grub2pas}" ];then
+    echo "grub_password=已启用@@0"
+else
+    echo "grub_password=未启用@@1"
+fi
+
+
+#系统的CORE DUMP
+core_dump=$(ulimit -c)
+if [ -n ${core_dump} ];then
+    echo "core_dump=已启用@@0"
+else
+    echo "core_dump=未启用@@1"
+fi
+
+#Ctrl+Alt+Del组合键启用状态
+case $arch in
+11_SP4)
+ctrl_alt_del=`cat /etc/inittab | grep -v '^\s*#' | grep -v '^$' | grep 'ctrlaltdel' | grep shutdown`
+if [ -z "${ctrl_alt_del}" ];then
+    echo "ctrl_alt_del=关闭@@0"
+else
+    echo "ctrl_alt_del=未关闭@@1"
+fi
+;;
+12_SP3)
+ctrl_alt_del=`ls -l /usr/lib/systemd/system/ctrl-alt-del.target 2>/dev/null |grep "reboot.target"`
+if [ -z "${ctrl_alt_del}" ];then
+    echo "ctrl_alt_del=关闭@@0"
+else
+    echo "ctrl_alt_del=未关闭@@1"
+fi
+;;
+esac
+
+
+#防火墙启用状态
+rcSuSEfirewall2 status &> /dev/null
+if [ $? -ne 0 ];then
+    echo "firewall_status=关闭@@0"
+else
+    echo "firewall_status=未关闭@@1"
+fi
+
+
+#GSSAPIAuthentication
+ssh_gssAu=`cat /etc/ssh/sshd_config |grep -v "^#" |grep ^GSSAPIAuthentication |grep yes`
+if [ -n "${ssh_gssAu}" ];then
+    echo "GSSAPIAuthentication=yes@@1"
+else
+    echo "GSSAPIAuthentication=no@@0"
+fi
+
+#GSSAPICleanupCredentials
+ssh_gssCl=`cat /etc/ssh/sshd_config |grep -v "^#" |grep ^GSSAPICleanupCredentials |grep yes`
+if [ -n "$ssh_gssCl" ];then
+    echo "GSSAPICleanupCredentials=yes@@1"
+else
+    echo "GSSAPICleanupCredentials=no@@0"
+fi
+
+#协议1/2开启状态
+ssh_Protocol=`cat /etc/ssh/sshd_config |grep -v "^#" |grep Protocol |awk '{print $2}'`
+if [[ $ssh_Protocol -eq 2 ]];then
+    echo "openssh_protocol=仅开启协议2@@0"
+elif [[ $ssh_Protocol -eq 1 ]];then
+    echo "openssh_protocol=仅开启协议1@@1"
+elif [ -z "$ssh_Protocol" ];then
+    echo "openssh_protocol=未配置@@1"
+else
+    echo "openssh_protocol=既开启了协议2，也开启了协议1@@1"
+fi
+
+#远程root是否开启
+ssh_root=`cat /etc/ssh/sshd_config |grep -v "^#" |grep PermitRootLogin |grep yes`
+if [ -n "${ssh_root}" ];then
+    echo "root_remote=未关闭@@1"
+else
+    echo "root_remote=关闭@@0"
+fi
+
+#X11Forwarding
+ssh_X=`cat /etc/ssh/sshd_config |grep -v "^#" |grep ^X11Forwarding |grep yes`
+if [ -n "${ssh_X}" ];then
+    echo "openssh_x11=yes@@1"
+else
+    echo "openssh_x11=no@@0"
+fi
+
+#开机启动的服务运行状态
+case $arch in
+11_SP4)
+chkconfig_on=`chkconfig --list |awk '{print $1,$5,$7}' |egrep ':on|"开启"' |awk '{print $1}' | egrep -v 'lvm2-monitor|firstboot|nco|ncp|tip'`
+a=0
+echo "boot_services_status=" |tr -d '\n'
+for i in $chkconfig_on
+do
+    service $i status &>/dev/null
+    result=$?
+    if [ $result -eq 3 ];then
+        echo "$i" |tr '\n' ' ' && let a+=1
+    fi
+done
+if [ $a = 0 ];then
+    echo "无@@0"
+else
+    echo '@@1'
+fi
+;;
+12_SP3)
+chkconfig=`systemctl list-unit-files --type=service |grep enabled |awk '{print $1}'`
+a=0
+echo "boot_services_status=" |tr -d '\n'
+for i in $chkconfig
+do
+    b=`systemctl status $i 2>/dev/null |grep "Active: active"`
+    if [ ! -n "${b}" ];then
+        echo "${i}" |tr '\n' ' ' && let a+=1
+    fi
+done
+if [ $a = 0 ];then
+    echo "无@@0"
+else
+    echo '@@1'
+fi
+;;
+esac
+
+#系统负载状况(15min)
+sys_load_info_num=`uptime |awk '{print $NF}' |awk -F. '{print $1}'`
+sys_load_info_num_a=`uptime |awk '{print $NF}'`
+processor=`cat /proc/cpuinfo |grep -c processor`
+processor_num=`expr ${processor} \* ${sys_load_info}`
+if [ $sys_load_info_num -gt $processor_num ]; then
+    echo "sys_load_info=${sys_load_info_num_a}@@1"
+else
+    echo "sys_load_info=${sys_load_info_num_a}@@0"
+fi
+
+#交换分区使用情况
+swap=`free -m |grep -i swap |awk '{print $2,$3,$4}'`
+read a b c < <(echo ${swap})
+if [ ${a} -gt 0 ];then
+swap_used=$(printf "%d%%" $((b*100/a)))
+else
+swap_used=0%
+fi
+if [[ `echo $swap_used |sed "s/\%$//g"` -ge `echo $swap_use_status |sed "s/\%$//g"` ]];then
+    echo "swap_use_status=<table class^\"new_table\"><tr><th>swap总量</th><th>已用swap</th><th>空闲swap</th><th>swap使用率</th><tr class^"danger"><td>${a}M</td><td>${b}M</td><td>${c}M</td><td>${swap_used}</td></tr></table>@@1"
+else
+    echo "swap_use_status=<table class^\"new_table\"><tr><th>swap总量</th><th>已用swap</th><th>空闲swap</th><th>swap使用率</th><tr><td>${a}M</td><td>${b}M</td><td>${c}M</td><td>${swap_used}</td></tr></table>@@0"
+fi
+
+#磁盘空间使用状态
+m=`df -hPBM |sed '1d' |grep -v "/dev/sr" |grep -v devtmpfs |grep -v tmpfs |grep -v "loop" |wc -l`
+echo "disk_use_status=<table class^\"new_table\"><tr><th>Filesystem</th><th>Size</th><th>Used</th><th>Avail</th><th>Use%</th><th>Mounted_on</th>" |tr -d '\n'
+n=0
+for ((i=1;i<=m;i++))
+do
+	disk=`df -hPBM |sed '1d' |grep -v tmpfs |grep -v devtmpfs |grep -v "/dev/sr" |sed -n "${i}p"`
+	read a b c d e f < <(echo ${disk})
+	f_num=`echo $e |sed "s/\%$//g"`
+	if [[ ${f_num} -gt  `echo ${disk_use_status} |sed "s/\%//g"` ]];then
+       let n+=1 && echo "<tr class^"danger"><td>${a}</td><td>${b}</td><td>${c}</td><td>${d}</td><td>${e}</td><td>${f}</td></tr>" |tr -d '\n'
+
+	else
+        echo "<tr><td>${a}</td><td>${b}</td><td>${c}</td><td>${d}</td><td>${e}</td><td>${f}</td></tr>" |tr -d '\n'
+	fi
+done
+if [ "$n" == 0 ];then
+    echo '</table>@@0'
+else
+    echo "</table>@@1"
+fi
+
+#Inode使用情况
+m=`df -hiTPBK |sed '1d' |grep -v "/dev/sr" |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" | grep -v '-' |wc -l`
+echo "inode_use_status=<table class^\"new_table\"><tr><th>Filesystem</th><th>Type</th><th>Inode</th><th>Iused</th><th>Ifree</th><th>IUse%</th><th>Mounted_on</th>" |tr -d '\n'
+n=0
+for ((i=1;i<=m;i++))
+do
+    read a b c d e f g < <(df -hiTPBK |sed '1d' |grep -v "/dev/sr" |grep -v tmpfs |grep -v devtmpfs |grep -v "loop" | grep -v '-'  |sed -n "${i}p")
+    tmp=`echo $f |awk -F% '{print $1}'`
+    inode_use_status_data=`echo ${inode_use_status} |sed "s/\%//g"`
+    if [[ ${tmp} -gt $inode_use_status_data ]];then
+        echo "<tr class^"danger"><td>${a}</td><td>${b}</td><td>${c}</td><td>${d}</td><td>${e}</td><td>${f}</td><td>${g}</td></tr>" |tr -d '\n' && let n+=1
+    else
+        echo "<tr><td>${a}</td><td>${b}</td><td>${c}</td><td>${d}</td><td>${e}</td><td>${f}</td><td>${g}</td></tr>" |tr -d '\n'
+    fi
+done
+if [ $n == 0 ];then
+    echo '</table>@@0'
+else
+    echo "</table>@@1"
+fi
+
+#登录失败次数（30天）
+#month=`date |awk '{print $2}'`
+#date=`date |awk '{print $3}'`
+#month_12=`echo "Dec Nov Oct Sep Aug Jul Jun May Apr Mar Feb Jan end"`
+#last_month=`echo ${month_12#*${month}} |awk '{print $1}'`
+#lastb=`lastb |egrep "$mouth|$last_month" |wc -l`
+#if [ $lastb -gt 100 ];then
+#    echo "login_failed_times=${lastb}@@1"
+#else
+#    echo "login_failed_times=${lastb}@@0"
+#fi
+
+[ -f /var/log/btmp ] || touch /var/log/btmp
+a=`date +%s`
+b=`expr $a - 2592000`
+c=`date -d @$b "+%Y%m%d%H%M%S"`
+l_total=`lastb |grep -v btmp |grep -v ^$ |wc -l`
+l_befor=`lastb -t $c |grep -v btmp |grep -v ^$ |wc -l`
+l_end=`expr $l_total - $l_befor`
+lastb=`lastb |sed -n 1,${l_end}p |wc -l`
+if [[ $lastb -gt ${login_failed_times} ]];then
+    echo "login_failed_times=${lastb}@@1"
+else
+    echo "login_failed_times=${lastb}@@0"
+fi
+
+
+#僵尸进程信息
+zombie=`ps -A -o stat,ppid,pid,cmd |grep -e '^[Zz]'`
+if [ -n "${zombie}" ];then
+    num=`ps -A -o stat,ppid,pid,cmd |grep -e '^[Zz]' |wc -l`
+    echo "zombie_process=<table class^\"new_table\"><tr><th>stat</th><th>ppid</th><th>pid</th><th>cmd</th></tr>" |tr -d '\n'
+    for i in `seq 1 $num`
+    do
+        zombie_tmp=`ps -A -o stat,ppid,pid,cmd |grep -e '^[Zz]' |sed -n "${i}p"`
+        read a b c d < <(echo $zomebie_tmp)
+        echo "<tr class^"danger"><td>${a}</td>${b}<td>${c}</td><td>${d}</td></tr>" |tr -d '\n'
+    done
+    echo '</table>@@1'
+else
+    echo "zombie_process=null@@0"
+fi
+
+#检查lvm
+if $(lvs 2>/dev/null | awk '{print $1}' | grep -q 'LV'); then
+    echo "lvm_set=启用@@0"
+else
+    echo "lvm_set=未启用@@1"
+fi
+
+#sudo权限账号
+sudoer=$(egrep -v "^#|^Default|^%wheel|^root|^$" /etc/sudoers | grep 'ALL=' | awk '{print $1}')
+if [ -n "${sudoer}" ]; then
+    echo "sudo_account=`echo ${sudoer}`@@1"
+else
+    echo "sudo_account=null@@0"
+fi
+
+#日志报错
+errlog_num=$(egrep -wic "kernel.*(error|fail|warn|warning|not)" /var/log/messages)
+case $arch in
+11_SP4)
+dmesg_err_num=$(egrep -wic "kernel.*(error|fail|warn|warning|not)" /var/log/boot.msg)
+;;
+12_SP3)
+dmesg_err_num=$(egrep -wic "kernel.*(error|fail|warn|warning|not)" /var/log/boot.msg)
+;;
+esac
+
+if [[ ${errlog_num} != 0 ]];then
+    echo "errlog_num=${errlog_num}@@1"
+else
+    echo "errlog_num=${errlog_num}@@0"
+fi
+
+if [[ ${dmesg_err_num} != 0 ]];then
+    echo "dmesg_err_num=${dmesg_err_num}@@1"
+else
+    echo "dmesg_err_num=${dmesg_err_num}@@0"
+fi

@@ -1,0 +1,186 @@
+#!/bin/bash
+#Author:Allen
+#Descripttion:Collect server information
+#company:canway
+
+################################################################
+export LANG="en_US.UTF-8"
+systemnum=`cat /etc/redhat-release |grep -o '[0-9]' |head -n 1`
+################################################################
+
+
+#主机名称
+hostname=`hostname`
+echo "hostname=${hostname}"
+
+#操作系统版本
+rhel=`cat /etc/redhat-release |egrep -i "Enterprise|red|hat" |sed  "s/Red Hat Enterprise Linux Server release/RHEL/g" |awk '{print $1 $2}'`
+centos=`cat /etc/redhat-release |grep -i CentOS |awk '{print $1,$3}'`
+[ -n "$rhel" ] && echo "operating_system=${rhel}"
+[ -n "$centos" ] && echo "operating_system=${centos}"
+
+#硬件服务器品牌
+ProductName=`dmidecode |grep 'Product Name:' |uniq |awk -F ':' '{print $2}' |awk  '{print $1}' |tr -d '\n'`
+echo "product_name=${ProductName}"
+
+#cpu信息
+#cpu_num=`cat /proc/cpuinfo |grep "physical id" |uniq |wc -l`
+#echo "cpu_info=<table class^\"new_table\">" |tr -d '\n'
+#for i in `seq 1 ${cpu_num}`
+#do
+#    cpu_n=`cat /proc/cpuinfo |grep "physical id" |uniq |sed -n "${i}p"`
+#    read a b c d < <(echo $cpu_n)
+#    cpuinfo=`cat /proc/cpuinfo |egrep -B5  "^${a}.*${d}$" |grep "model name" | tail -n 1 | awk -F ':' '{print $2}' |sed 's/^[ \t]*//g'`
+#    echo "<tr><td>${cpuinfo}</td></tr>" |tr -d '\n'
+#done
+#echo "</table>"
+cpu_num=`cat /proc/cpuinfo |grep 'model name' |awk -F': ' '{print $2}' |uniq -c |wc -l`
+echo -n "cpu_info=<table class^\"new_table\">"
+for i in `seq 1 ${cpu_num}`
+do
+    cpu_n=`cat /proc/cpuinfo |grep 'model name' |awk -F': ' '{print $2}' |uniq -c |sed -n "${i}p"`
+    read a b < <(echo $cpu_n)
+    echo -n "<tr><td>${b} x ${a}</td></tr>"
+done
+echo "</table>"
+
+
+
+
+
+
+
+#本地磁盘信息
+#disk_num=`fdisk -l |grep "Disk /dev/" |grep -v mapper |awk '{print $2,$3,$4}' |uniq |awk -F/ '{print $3}' |sed s/[[:space:]]//g |wc -l`
+#echo "disk_info=<table class^\"new_table\">" |tr -d '\n'
+#for i in `seq 1 $disk_num`
+#do
+#    disk_info=`fdisk -l |grep "Disk /dev/" |grep -v mapper |awk '{print $2,$3,$4}' |uniq |awk -F/ '{print $3}' |sed -n ${i}p |sed s/[[:space:]]//g |tr -d ',' |tr ':' ' '`
+#    read a b < <(echo ${disk_info})
+#    echo "<tr><td>$a</td><td>$b</td></tr>" |tr -d '\n'
+#done
+#echo "</table>"
+disk_num=$(fdisk -l 2>/dev/null |grep Disk |grep '/dev' |egrep "sd|hd" |grep -v mapper |wc -l)
+disk_total=$(fdisk -l 2>/dev/null|grep Disk |grep '/dev' |egrep "sd|hd" |grep -v mapper |awk -F',' '{print $1}' |awk '{sum+=$(NF-1)} END {print sum}')
+echo "disk_info=本地磁盘数：${disk_num}，本地磁盘总量：${disk_total}GB"
+
+
+
+#内存信息
+#mem_k=`cat /proc/meminfo |grep MemTotal |awk '{print $2}'`
+#bc=`which bc 2>/dev/null`
+#if [ -n "$bc" ];then
+#    mem_g=$(printf "%.2f" `echo "scale=2; ${mem_k}/1024/1024" |bc`)
+#else
+#    mem_g=`free -g |grep  Mem |awk '{print $2}'`
+#fi
+#mem_num=`dmidecode |grep DDR |wc -l`
+#if [ $mem_num != 0 ];then
+#    echo "mem_info=内存条数量:${mem_num}条,内存总量:${mem_g}G"
+#else
+#    echo "mem_info=内存总量:${mem_g}G"
+#fi
+which dmidecode &>/dev/null
+if [ $? -eq 0 ];then
+    mem_num=$(dmidecode|grep -P -A5 "Memory\s+Device"|grep Size|grep -v Range |grep -v 'No Module' |wc -l)
+    mem_total=$(dmidecode|grep -P -A5 "Memory\s+Device"|grep Size|grep -v Range |grep -v 'No Module' |awk '{sum+=$2} END {print sum}')
+    echo "mem_info=内存条数量：${mem_num}条，内存总量：${mem_total}M"
+else
+    mem_m=`free -m |grep  Mem |awk '{print $2}'`
+     echo "mem_info=${mem_m}M"
+fi
+
+
+
+#光纤卡信息
+lspci=`lspci 2>/dev/null`
+if [ ! -n "${lspci}" ];then
+    echo "fc_info=系统未安装pciuntils工具包，无法获取光纤卡信息"
+else
+    FC=`lspci |grep "Fibre Channel" |awk -F ':' '{print $3}' |awk -F 'to' '{print $1}' |sed 's/^[ \t]*//g'`
+    if [ ! -n "${FC}" ];then
+        echo "fc_info=null"
+    else
+        echo "fc_info=`echo ${FC}`"
+    fi
+fi
+
+#RAID卡信息
+lspci=`lspci 2>/dev/null`
+if [ ! -n "${lspci}" ];then
+    echo "raid_info=系统未安装pciuntils工具包，无法获取raid卡信息"
+else
+    RAID_ID=`lspci |grep RAID |awk -F ':' '{print $NF}' |awk -F '(' '{print $1}' |awk -F '[' '{print $1}' |sed 's/^[ \t]*//g'`
+    if [ ! -n "${RAID_ID}" ];then
+        echo "raid_info=null"
+    else
+        echo "raid_info=${RAID_ID}"
+    fi
+fi
+
+#网卡信息
+#lspci=`lspci 2>/dev/null`
+#if [ ! -n "${lspci}" ];then
+#   echo "nic_info=系统未安装pciuntils工具包，无法获取网卡信息"
+#else
+#    nic_name=`lspci |grep -i eth |awk -F': ' '{print $2}'`
+#    nic_num=`lspci |grep -i eth |awk -F': ' '{print $2}' |wc -l`
+#    if [ $nic_num == 0 ];then
+#        echo "nic_info=未安装网卡"
+#    elif [ $nic_num == 1 ];then
+#        echo "nic_info=${nic_name}"
+#    else
+#        nic_name_a=`lspci |grep -i eth |awk -F': ' '{print $2}' |tr '\n' '</td><td>'`
+#        echo "nic_info=<table class^\"new_table\"><tr><td>${nic_name_a}</td></tr></table>"
+#    fi
+#fi
+net_names=$(ip addr |grep -A3 BROADCAST |egrep  'LOWER_UP' |awk -F: '{print $2}')
+net_mac=$(ip addr |grep -A3 BROADCAST |egrep  -A1 'LOWER_UP' |grep ether |awk '{print $2}' |tr '\n' '; ' |sed "s/\;$//g")
+echo "nic_info=${net_mac}"
+
+
+
+
+#系统内核版本
+uname=`uname -r`
+echo "system_kernel=${uname}"
+
+#系统安装时间
+rpm_time=`rpm -qa |grep ^coreutils-* |head -n 1`
+system_install_time=`rpm -qi ${rpm_time} |grep "Build Date" |awk -F"Build Date" '{print $2}' |awk '{print $5,$4,$3,$2,$6}'`
+echo "system_install_time=${system_install_time=}"
+
+#时区设置
+case $systemnum in
+7)
+time_zone=`ls -l /etc/localtime |awk -F'/' '{print $(NF-1),$NF}' |tr ' ' '/'`
+echo "time_set=${time_zone}"
+;;
+*)
+time_zone=`cat /etc/sysconfig/clock |grep  ZONE |awk -F'"' '{print $2}' |grep -v ^$`
+echo "time_set=${time_zone}"
+;;
+esac
+
+#系统运行时间
+run_time=$(uptime |awk -F, '{print $1}' |awk -F'up ' '{print $2}')
+echo "system_run_time=${run_time}"
+
+#判断是否是虚拟机
+dmidecode -s system-product-name &>/dev/null
+if [ $? -eq 0 ];then
+    virtual=$(dmidecode -s system-product-name |grep -i virtual)
+    if [ -n "${virtual}" ];then
+	echo "sys_type=virtual"
+    else
+	echo "sys_type=physical"
+    fi
+else
+    echo 'sys_type=未安装dmidecode命令，无法识别'
+fi
+
+
+
+
+exit 0
+

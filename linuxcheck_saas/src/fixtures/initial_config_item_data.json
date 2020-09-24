@@ -1,0 +1,16 @@
+[
+{"id":1,"name":"hostname","field_name":"主机名称","item_type":"基本信息","is_deleted":0},
+{"id":2,"name":"operating_system","field_name":"操作系统版本","item_type":"基本信息","is_deleted":0},
+{"id":3,"name":"product_name","field_name":"硬件服务器品牌","item_type":"基本信息","is_deleted":0},
+{"id":4,"name":"system_kernel","field_name":"系统内核版本","item_type":"基本信息","is_deleted":0},
+{"id":5,"name":"system_install_time","field_name":"系统安装时间","item_type":"基本信息","is_deleted":0},
+{"id":6,"name":"system_run_time","field_name":"系统运行时间","item_type":"基本信息","is_deleted":0},
+{"id":7,"name":"time_set","field_name":"时区设置","item_type":"基本信息","is_deleted":0},
+{"id":8,"name":"sys_type","field_name":"服务器类型","item_type":"基本信息","is_deleted":0},
+{"id":9,"name":"cpu_info","field_name":"CPU信息","item_type":"基本信息","is_deleted":0},
+{"id":10,"name":"mem_info","field_name":"内存信息","item_type":"基本信息","is_deleted":0},
+{"id":11,"name":"disk_info","field_name":"磁盘信息","item_type":"基本信息","is_deleted":0},
+{"id":12,"name":"nic_info","field_name":"网卡信息","item_type":"基本信息","is_deleted":0},
+{"id":13,"name":"fc_info","field_name":"光纤卡信息","item_type":"基本信息","is_deleted":0},
+{"id":14,"name":"raid_info","field_name":"RAID卡信息","item_type":"基本信息","is_deleted":0}
+]

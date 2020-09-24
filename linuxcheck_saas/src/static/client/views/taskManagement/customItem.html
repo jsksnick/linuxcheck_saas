@@ -1,0 +1,29 @@
+<div style="width:100%;overflow-y: auto;padding: 5px">
+    <fieldset class="fieldsetName">
+        <div class="container-fluid">
+            <div style="float:left;margin-left: 5px;">
+                <label style="float:left;margin-top: 5px;">系统类型：</label>
+                <select ng-model="filterObj.os_type" style="width:150px;float:left;" class="form-control">
+                    <option value="">全部</option>
+                    <option value="1">CentOS\Redhat</option>
+                    <option value="2">SUSE</option>
+                </select>
+            </div>
+            <div style="float:left;">
+                <label style="float:left;margin-top: 5px;margin-left: 5px">巡检项名称：</label>
+                <input type="text" ng-model="filterObj.name" style="width:150px;float:left;"
+                       class="form-control"/>
+            </div>
+            <div style="float:left;margin-left:15px;">
+                <button ng-click="searchObj()" class="btn new-button">查询</button>
+            </div>
+            <div style="float:right;margin-left:15px;">
+                <button ng-click="addItem()" class="btn new-button-two">新增自定义巡检项</button>
+            </div>
+        </div>
+    </fieldset>
+
+    <div cw-adaptbody="100" ng-grid="gridOption"
+         style="width:100%;overflow-y: auto;overflow-x: hidden;padding: 10px;"></div>
+</div>
+

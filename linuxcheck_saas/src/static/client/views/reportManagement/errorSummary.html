@@ -1,0 +1,90 @@
+<div class="report_body report_server">
+    <style>
+    .report_bottom > div {
+        font-size: 0;
+        border-bottom: 1px solid #d7d7d7;
+        margin-bottom: 15px;
+    }
+
+    .obj_title {
+        width: 20%;
+        display: inline-block;
+        font-size: 18px;
+        vertical-align: top;
+        padding: 0 8px;
+    }
+
+    .obj_title h5 {
+        word-wrap: break-word;
+    }
+    .title {
+        font-size: 15px;
+        line-height: 30px;
+        margin: 10px 42px;
+    }
+
+    .obj_body {
+        width: 80%;
+        display: inline-block;
+        font-size: 12px;
+        vertical-align: top;
+    }
+
+    .error_table {
+        border: 1px solid #d7d7d7;
+        margin-bottom: 15px;
+    }
+
+    h5 {
+        margin-bottom: 24px;
+    }
+
+    .error_table th,
+    .error_table td {
+        word-wrap: break-word;
+    }
+
+    .error_table table{
+        width: 100%;
+        border: 1px solid #d7d7d7;
+    }
+    .error_table table td,
+    .error_table table th{
+        border: 1px solid #d7d7d7;
+        padding: 3px 5px;
+    }
+    .tr_error>th:nth-child(1){
+        width: 30%!important;
+    }
+    .tr_error>th:nth-child(2){
+        width: 45%!important;
+    }
+    .tr_error>th:nth-child(3){
+        width: 10%!important;
+    }
+    .tr_error>th:nth-child(4){
+        width: 15%!important;
+    }
+</style>
+    <div class="report_box" style="position: relative">
+        <div class="back_btn" style="width: auto">
+            <button ng-click="down_pdf()" class="btn new-button-two">导出PDF</button>
+            <!--<button ng-click="down_excel()" class="btn btn-sm btn-success">导出Excel</button>-->
+            <button onClick="javascript :history.go(-1);" class="btn new-button-cancel">返回</button>
+        </div>
+        <div class="report_nav ">
+            <div class="logo fl">
+                <span><i class="glyphicon glyphicon-duplicate"></i></span>
+            </div>
+            <div class="fl title">
+                <div>任务名称：{{ rp_data.name }}</div>
+                <div>巡检时间：{{ rp_data.when_created }}</div>
+                <div>巡检结果：{{ rp_data.s_error }}</div>
+            </div>
+        </div>
+        <div class="report_bottom">
+
+        </div>
+    </div>
+</div>
+
